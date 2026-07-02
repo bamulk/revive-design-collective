@@ -1,0 +1,331 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  Camera,
+  Loader2,
+  X,
+  Image as ImageIcon,
+  AlertCircle,
+  Play,
+} from "lucide-react";
+import { compressImage } from "@/lib/image-compress";
+import { createClient } from "@/lib/supabase/client";
+
+/**
+ * Auto-uploading multi-photo/-video picker for the stage detail page.
+ *
+ * Photos: pick → compress client-side (HEIC → JPEG, ≤1920px, q≈0.82) →
+ * upload via the bound server action (small enough for Vercel's request
+ * body limit).
+ *
+ * Videos: too big to round-trip through a server action (Vercel caps the
+ * request body at ~4.5 MB), so they upload DIRECTLY from the browser to
+ * Supabase Storage with the user's session, then a lightweight server
+ * action (`videoAction`) records just the metadata row. Video upload is
+ * only offered when `videoAction` + `stageId` are supplied.
+ */
+
+// Effective cap is the lower of this and the Supabase project's storage
+// upload limit (Dashboard → Storage → Settings). Keep them in sync.
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+const BUCKET = "stage-photos";
+
+type Status = "optimizing" | "uploading" | "error";
+
+type Item = {
+  // Stable id for keying / removal even before we have a File.
+  id: string;
+  kind: "image" | "video";
+  file: File | null;
+  previewUrl: string | null;
+  status: Status;
+  error?: string;
+};
+
+export default function StagePhotoUploader({
+  action,
+  videoAction,
+  stageId,
+}: {
+  action: (formData: FormData) => Promise<void> | void;
+  /** Records a video already uploaded to Storage. Enables video picking. */
+  videoAction?: (storagePath: string) => Promise<void> | void;
+  /** Required for video uploads — used to namespace the storage path. */
+  stageId?: string;
+}) {
+  const [items, setItems] = useState<Item[]>([]);
+
+  const videoEnabled = !!(videoAction && stageId);
+  const accept = videoEnabled
+    ? "image/*,image/heic,image/heif,video/*"
+    : "image/*,image/heic,image/heif";
+
+  // Revoke preview blobs when items disappear.
+  useEffect(() => {
+    return () => {
+      for (const it of items) {
+        if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+      }
+    };
+    // We only run cleanup on unmount — individual blob cleanup is
+    // handled when we remove an item below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function newId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => {
+      const target = prev.find((it) => it.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((it) => it.id !== id);
+    });
+  }
+
+  function updateItem(id: string, patch: Partial<Item>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  }
+
+  async function handleVideo(rawFile: File) {
+    const id = newId();
+    let previewUrl: string | null = null;
+    try {
+      previewUrl = URL.createObjectURL(rawFile);
+    } catch {
+      previewUrl = null;
+    }
+
+    if (rawFile.size > MAX_VIDEO_BYTES) {
+      setItems((prev) => [
+        ...prev,
+        {
+          id,
+          kind: "video",
+          file: rawFile,
+          previewUrl,
+          status: "error",
+          error: `Video is too large (max ${Math.round(
+            MAX_VIDEO_BYTES / (1024 * 1024),
+          )} MB).`,
+        },
+      ]);
+      return;
+    }
+
+    setItems((prev) => [
+      ...prev,
+      { id, kind: "video", file: rawFile, previewUrl, status: "uploading" },
+    ]);
+
+    const safe = rawFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${stageId}/${Date.now()}-${safe}`;
+    const supabase = createClient();
+    let uploaded = false;
+    try {
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, rawFile, {
+          contentType: rawFile.type || "video/mp4",
+          upsert: false,
+        });
+      if (error) throw new Error(error.message);
+      uploaded = true;
+      // Record the metadata row (separate server-action round-trip).
+      await videoAction!(path);
+      removeItem(id);
+    } catch (e: any) {
+      // The bytes uploaded but recording the row failed — roll back the
+      // now-orphaned object so it doesn't sit in the bucket unreferenced
+      // (nothing else ever cleans up a row-less object).
+      if (uploaded) {
+        try {
+          await supabase.storage.from(BUCKET).remove([path]);
+        } catch {
+          // Best-effort; leave the orphan rather than masking the real error.
+        }
+      }
+      updateItem(id, {
+        status: "error",
+        error: e?.message || "Upload failed",
+      });
+    }
+  }
+
+  async function handleImage(rawFile: File) {
+    const id = newId();
+    // Lightweight preview based on the original file so the user sees
+    // something immediately while compression runs.
+    let previewUrl: string | null = null;
+    try {
+      previewUrl = URL.createObjectURL(rawFile);
+    } catch {
+      previewUrl = null;
+    }
+    setItems((prev) => [
+      ...prev,
+      { id, kind: "image", file: null, previewUrl, status: "optimizing" },
+    ]);
+
+    let compressed: File;
+    try {
+      compressed = await compressImage(rawFile);
+    } catch (e: any) {
+      updateItem(id, {
+        status: "error",
+        error: e?.message || "Couldn't process this image.",
+      });
+      return;
+    }
+    updateItem(id, { file: compressed, status: "uploading" });
+
+    try {
+      const fd = new FormData();
+      fd.set("file", compressed);
+      await action(fd);
+      // Success — drop from local state. The parent grid will refresh
+      // via revalidatePath inside the server action.
+      removeItem(id);
+    } catch (e: any) {
+      updateItem(id, {
+        status: "error",
+        error: e?.message || "Upload failed",
+      });
+    }
+  }
+
+  function handleOne(rawFile: File) {
+    if (videoEnabled && rawFile.type.startsWith("video/")) {
+      void handleVideo(rawFile);
+    } else {
+      void handleImage(rawFile);
+    }
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    // Kick off all uploads in parallel — the server can handle a few
+    // concurrent file POSTs and the user gets done sooner.
+    for (const f of picked) handleOne(f);
+  }
+
+  const optimizing = items.filter((it) => it.status === "optimizing").length;
+  const uploading = items.filter((it) => it.status === "uploading").length;
+  const errored = items.filter((it) => it.status === "error").length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Photo / video library / multi-select */}
+        <label
+          htmlFor="stage_photo_library"
+          className="text-sm bg-slate-900 text-white rounded-md px-3 py-2 cursor-pointer hover:bg-slate-800 inline-flex items-center gap-2"
+        >
+          <ImageIcon size={14} />
+          {videoEnabled ? "Add photos or video" : "Add photos"}
+        </label>
+        <input
+          id="stage_photo_library"
+          type="file"
+          accept={accept}
+          multiple
+          onChange={onChange}
+          className="hidden"
+        />
+
+        {/* Camera shortcut (photos only) */}
+        <label
+          htmlFor="stage_photo_camera"
+          className="text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 rounded-md px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 inline-flex items-center gap-2"
+        >
+          <Camera size={14} />
+          Take photo
+        </label>
+        <input
+          id="stage_photo_camera"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={onChange}
+          className="hidden"
+        />
+
+        {(optimizing > 0 || uploading > 0) && (
+          <span className="text-xs text-slate-600 dark:text-slate-400 inline-flex items-center gap-1.5">
+            <Loader2 size={12} className="animate-spin" />
+            {optimizing > 0 && `Optimizing ${optimizing}`}
+            {optimizing > 0 && uploading > 0 && " · "}
+            {uploading > 0 && `Uploading ${uploading}`}
+          </span>
+        )}
+        {errored > 0 && (
+          <span className="text-xs text-rose-600 inline-flex items-center gap-1">
+            <AlertCircle size={12} />
+            {errored} failed
+          </span>
+        )}
+      </div>
+
+      {items.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+          {items.map((it) => (
+            <div
+              key={it.id}
+              className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            >
+              {it.previewUrl &&
+                (it.kind === "video" ? (
+                  <video
+                    src={it.previewUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-24 object-cover"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={it.previewUrl}
+                    alt=""
+                    className="w-full h-24 object-cover"
+                  />
+                ))}
+              {/* Play glyph so a video tile reads as a video. */}
+              {it.kind === "video" && it.status !== "error" && (
+                <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/55 text-white">
+                  <Play size={11} fill="currentColor" />
+                </span>
+              )}
+              {/* Status overlay */}
+              {it.status !== "error" && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] uppercase tracking-wide gap-1">
+                  <Loader2 size={12} className="animate-spin" />
+                  {it.status === "optimizing" ? "Optimizing" : "Uploading"}
+                </div>
+              )}
+              {it.status === "error" && (
+                <div
+                  className="absolute inset-0 bg-rose-900/70 text-white p-1.5 text-[10px] flex flex-col items-center justify-center text-center gap-1"
+                  title={it.error}
+                >
+                  <AlertCircle size={14} />
+                  <span className="leading-tight">{it.error ?? "Failed"}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(it.id)}
+                    className="mt-1 text-[10px] underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

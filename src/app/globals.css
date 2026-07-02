@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  /* Revive Design Collective brand palette
+     Charcoal   #1B1B1B  primary text / dark surfaces
+     Gold       #D9B679  accent on dark, fine rules
+     Deep Gold  #A9761E  primary actions, accent on light
+     Warm Cream #F4EEE3  light surfaces
+     Muted Sage #93A085  secondary accent (botanical) */
+  --background: #f7f3ea;      /* warm off-white drawn from cream */
+  --foreground: #1b1b1b;      /* charcoal */
+  --brand: #a9761e;           /* deep gold — primary action */
+  --brand-hover: #8a611a;     /* darker gold on hover */
+  --gold: #d9b679;
+  --deep-gold: #a9761e;
+  --cream: #f4eee3;
+  --sage: #93a085;
+  --charcoal: #1b1b1b;
+  --ring: rgba(169, 118, 30, 0.28);
+}
+
+/* iOS / macOS / Android system dark mode — automatically applied when
+   the OS is in dark. No manual toggle. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #161512;      /* warm charcoal */
+    --foreground: #ece6da;      /* warm cream text */
+    --brand: #c79a45;           /* brightened gold for dark surfaces */
+    --brand-hover: #d9b679;     /* gold on hover */
+    --gold: #d9b679;
+    --deep-gold: #c79a45;
+    --cream: #f4eee3;
+    --sage: #93a085;
+    --charcoal: #1b1b1b;
+    --ring: rgba(217, 182, 121, 0.35);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-gold: var(--gold);
+  --color-deep-gold: var(--deep-gold);
+  --color-cream: var(--cream);
+  --color-sage: var(--sage);
+  --color-charcoal: var(--charcoal);
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-display), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Headings use the Montserrat display face for brand consistency.
+   Body copy stays on Inter (--font-sans). */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(169, 118, 30, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(147, 160, 133, 0.07), transparent 60%),
+    var(--background);
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(199, 154, 69, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(147, 160, 133, 0.08), transparent 60%),
+      var(--background);
+  }
+}
+
+/* Stronger placeholders for legibility */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  input::placeholder,
+  textarea::placeholder {
+    color: #64748b;
+  }
+}
+
+/* Form controls */
+input, select, textarea {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  input, select, textarea {
+    background-color: #1e293b;
+    color: #f1f5f9;
+    border-color: #334155;
+  }
+  /* native date pickers use this filter to invert the icon */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-color: var(--brand);
+}
+
+/* Smooth everything */
+* {
+  transition-property: background-color, border-color, color, box-shadow, transform, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
