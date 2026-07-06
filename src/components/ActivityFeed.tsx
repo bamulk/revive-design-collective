@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   PlusCircle,
   Trash2,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui";
@@ -35,6 +36,11 @@ const KIND_META: { kind: string; label: string; icon: LucideIcon; color: string 
     { kind: "payment_recorded", label: "Payments", icon: CircleDollarSign, color: "text-emerald-700" },
     { kind: "stage_created", label: "Created", icon: PlusCircle, color: "text-emerald-700" },
     { kind: "stage_deleted", label: "Deleted", icon: Trash2, color: "text-rose-700" },
+    // NOTE: every logged ActivityKind MUST be listed here — the filter
+    // starts from this list, so an unlisted kind never renders at all
+    // (even in the per-stage box, which hides the chips but still
+    // filters by it).
+    { kind: "stage_client_change", label: "Client", icon: UserRound, color: "text-sky-700" },
   ];
 const ALL_KINDS = KIND_META.map((k) => k.kind);
 
@@ -131,6 +137,21 @@ function renderEvent(item: ActivityItem): {
         ),
       };
     }
+    case "stage_client_change":
+      return {
+        icon: <UserRound size={14} className="text-sky-700" />,
+        text: (
+          <>
+            <strong>{actor}</strong> changed the client on <em>{addr}</em>
+            {details.from ? (
+              <>
+                {" "}from <strong>{String(details.from)}</strong>
+              </>
+            ) : null}{" "}
+            to <strong>{String(details.to ?? "")}</strong>
+          </>
+        ),
+      };
     case "payment_recorded": {
       const amt = Number(details.amount ?? 0);
       const method = details.method ? ` via ${details.method}` : "";

@@ -9,7 +9,8 @@ export type ActivityKind =
   | "stage_created"
   | "stage_deleted"
   | "photo_added"
-  | "payment_recorded";
+  | "payment_recorded"
+  | "stage_client_change";
 
 /**
  * Insert one event into activity_log. Best-effort — failures are

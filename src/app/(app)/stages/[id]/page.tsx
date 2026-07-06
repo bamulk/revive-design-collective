@@ -39,6 +39,8 @@ import ExtraFeesFields from "@/components/ExtraFeesFields";
 import CustomLineItemsFields from "@/components/CustomLineItemsFields";
 import AdvanceStatusButton from "@/components/AdvanceStatusButton";
 import StatusControl from "@/components/StatusControl";
+import StageClientControl from "@/components/StageClientControl";
+import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
 import { geocodeAddress, reverseGeocodeArea } from "@/lib/geocode";
@@ -131,6 +133,19 @@ export default async function StageDetailPage({
       };
     },
   );
+
+  // Full client list for the admin-only "Change client" control. The
+  // list grows without bound, so page past the 1000-row cap.
+  const allClients: { id: string; name: string }[] = isAdmin
+    ? await fetchAllRows((from, to) =>
+        supabase
+          .from("clients")
+          .select("id, name")
+          .order("name")
+          .order("id")
+          .range(from, to),
+      )
+    : [];
 
   // Miles-from-barn uses the cached lat/lng on the row. If it's
   // missing, we queue a background geocode (Next 16's after()) so the
@@ -249,6 +264,16 @@ export default async function StageDetailPage({
             >
               {stage.clients?.name}
             </Link>
+            {isAdmin && (
+              <>
+                {" "}
+                <StageClientControl
+                  stageId={id}
+                  currentClientId={stage.clients?.id ?? null}
+                  clients={allClients}
+                />
+              </>
+            )}
           </p>
           {(stage.clients?.phone || stage.clients?.email) && (
             <div className="mt-2 flex flex-wrap items-center gap-2">

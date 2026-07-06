@@ -1381,6 +1381,56 @@ export async function updateStageStatusAction(
 }
 
 /**
+ * Reassign a stage to a different client. Admin-only — the client tie
+ * drives billing, contracts, and portal visibility. Invoices/contracts
+ * generated AFTER the change pick up the new client automatically (they
+ * join clients at generation time); anything already generated or sent
+ * keeps the old client's details until regenerated.
+ */
+export async function updateStageClientAction(
+  stageId: string,
+  clientId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const supabase = await createClient();
+  // Validate the target client exists (and snapshot names for the log).
+  const [{ data: newClient }, { data: stage }] = await Promise.all([
+    supabase.from("clients").select("id, name").eq("id", clientId).maybeSingle(),
+    supabase
+      .from("stages")
+      .select("client_id, address, clients(name)")
+      .eq("id", stageId)
+      .maybeSingle(),
+  ]);
+  if (!newClient) return { ok: false, error: "Client not found." };
+  if (!stage) return { ok: false, error: "Stage not found." };
+  if (stage.client_id === clientId) return { ok: true };
+
+  const { error } = await supabase
+    .from("stages")
+    .update({ client_id: clientId })
+    .eq("id", stageId);
+  if (error) return { ok: false, error: error.message };
+
+  const prevClient = Array.isArray(stage.clients)
+    ? stage.clients[0]
+    : stage.clients;
+  await logActivity(supabase, {
+    kind: "stage_client_change",
+    stageId,
+    stageAddress: stage.address,
+    details: {
+      from: (prevClient as { name?: string } | null)?.name ?? null,
+      to: newClient.name,
+    },
+  });
+  revalidatePath(`/stages/${stageId}`);
+  revalidatePath("/stages");
+  revalidatePath("/clients");
+  return { ok: true };
+}
+
+/**
  * Inline single-field autosave for the stage detail page (admin only).
  * Whitelisted to operational fields — stage_date, destage_date,
  * lockbox_code, notes. Editing stage_date keeps the destage_date
