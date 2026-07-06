@@ -88,6 +88,13 @@ export default function QuickMarkPaid({ stageId }: { stageId: string }) {
         )}
         Mark as paid
       </button>
+      {/* Visible error — a tooltip-only error is invisible on touch
+          devices, which made failures look like the button did nothing. */}
+      {error && (
+        <span className="w-full text-[11px] text-rose-700 leading-tight">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

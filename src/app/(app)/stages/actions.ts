@@ -855,7 +855,7 @@ export async function markPaidAction(
 
     const { data: stage } = await supabase
       .from("stages")
-      .select("amount")
+      .select("amount, paid_at")
       .eq("id", stageId)
       .single();
     if (!stage) throw new Error("Stage not found");
@@ -870,11 +870,6 @@ export async function markPaidAction(
     );
     const outstanding =
       Math.max(Number(stage.amount ?? 0) - paidSoFar, 0);
-    if (outstanding <= 0) {
-      // Already paid in full — nothing to do; treat as success so the
-      // mark-paid button doesn't error in idempotent re-clicks.
-      return { ok: true };
-    }
 
     const methodRaw = String(formData.get("method") || "").toLowerCase();
     const allowed = ["check", "cash", "zelle", "venmo", "card", "other"];
@@ -883,6 +878,32 @@ export async function markPaidAction(
     const paidAt = /^\d{4}-\d{2}-\d{2}$/.test(paidAtRaw)
       ? paidAtRaw
       : new Date().toISOString().slice(0, 10);
+
+    if (outstanding <= 0) {
+      // Nothing to add to the payments ledger — either already paid in
+      // full, or the stage's amount is $0 (legacy imports with no price
+      // on file). The stage_payments trigger only stamps stages.paid_at
+      // when a payment ROW exists (stage_payments has CHECK amount > 0,
+      // so a $0 payment can't be inserted) — so a $0 stage would sit in
+      // "Outstanding" forever while this action reported success. Stamp
+      // the stage directly instead.
+      if (!stage.paid_at) {
+        const { error } = await supabase
+          .from("stages")
+          .update({ paid_at: paidAt, payment_method: method })
+          .eq("id", stageId);
+        if (error) throw new Error(error.message);
+        await logActivity(supabase, {
+          kind: "payment_recorded",
+          stageId,
+          details: { amount: 0, method, paid_at: paidAt, via: "mark_paid" },
+        });
+        revalidatePath(`/stages/${stageId}`);
+        revalidatePath("/");
+      }
+      // Idempotent success on re-clicks either way.
+      return { ok: true };
+    }
 
     const { error } = await supabase.from("stage_payments").insert({
       stage_id: stageId,
