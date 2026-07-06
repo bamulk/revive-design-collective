@@ -206,18 +206,18 @@ export default function NavBar({
             className="inline-flex items-center font-display"
             aria-label="Revive Design Collective — Home"
           >
-            {/* Text wordmark: "Revive | Design Collective" in Montserrat.
-                "Revive" reads in charcoal (cream in dark mode) and the
-                "Design Collective" half is deep gold, split by a thin
-                vertical rule. */}
-            <span className="text-lg sm:text-xl font-normal tracking-tight text-charcoal dark:text-cream">
+            {/* Text wordmark: "Revive | Design Collective" in Cormorant
+                Garamond. "Revive" reads in ink (cream in dark mode) and the
+                "Design Collective" half is sage, split by a thin vertical
+                rule. Slight uppercase tracking gives it an editorial feel. */}
+            <span className="text-xl sm:text-2xl font-medium tracking-wide text-charcoal dark:text-cream">
               Revive
             </span>
             <span
-              className="mx-2 h-5 w-px bg-slate-300 dark:bg-slate-600"
+              className="mx-2.5 h-5 w-px bg-slate-300 dark:bg-slate-600"
               aria-hidden="true"
             />
-            <span className="text-lg sm:text-xl font-extralight tracking-tight text-brand">
+            <span className="text-xl sm:text-2xl font-normal tracking-wide text-brand">
               Design Collective
             </span>
           </Link>

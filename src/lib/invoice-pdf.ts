@@ -111,7 +111,7 @@ export async function generateInvoicePdf(
 
   const black = rgb(0.1, 0.1, 0.12);
   const muted = rgb(0.35, 0.38, 0.45);
-  const brand = rgb(0.663, 0.463, 0.118); // approx #a9761e (deep gold)
+  const brand = rgb(0.486, 0.545, 0.463); // approx #7c8b76 (sage)
 
   const drawText = (
     text: string,

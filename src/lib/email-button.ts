@@ -10,10 +10,10 @@
 export function emailButton(opts: {
   href: string;
   label: string;
-  /** Button background. Defaults to the brand deep-gold. */
+  /** Button background. Defaults to the brand sage. */
   bg?: string;
 }): string {
-  const bg = opts.bg ?? "#a9761e";
+  const bg = opts.bg ?? "#7c8b76";
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
         <tr>
           <td bgcolor="${bg}" style="border-radius:8px;">

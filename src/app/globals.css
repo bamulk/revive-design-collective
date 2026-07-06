@@ -1,38 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Revive Design Collective brand palette
-     Charcoal   #1B1B1B  primary text / dark surfaces
-     Gold       #D9B679  accent on dark, fine rules
-     Deep Gold  #A9761E  primary actions, accent on light
-     Warm Cream #F4EEE3  light surfaces
-     Muted Sage #93A085  secondary accent (botanical) */
-  --background: #f7f3ea;      /* warm off-white drawn from cream */
-  --foreground: #1b1b1b;      /* charcoal */
-  --brand: #a9761e;           /* deep gold — primary action */
-  --brand-hover: #8a611a;     /* darker gold on hover */
-  --gold: #d9b679;
-  --deep-gold: #a9761e;
-  --cream: #f4eee3;
-  --sage: #93a085;
-  --charcoal: #1b1b1b;
-  --ring: rgba(169, 118, 30, 0.28);
+  /* Revive Design Collective brand palette — Soft Minimal (greige & sage)
+     Ink        #232323  primary text / dark surfaces
+     Sage       #7C8B76  primary actions, botanical accent
+     Soft Sage  #A4B29B  light accent, fine rules
+     Greige     #B8B0A4  secondary / stone neutral
+     Off-white  #F4F3EF  light surfaces */
+  --background: #f4f3ef;      /* soft off-white */
+  --foreground: #232323;      /* ink */
+  --brand: #7c8b76;           /* sage — primary action */
+  --brand-hover: #67765f;     /* deeper sage on hover */
+  --gold: #a4b29b;            /* soft sage — light accent / rules */
+  --deep-gold: #7c8b76;       /* == brand (legacy token name) */
+  --cream: #edebe4;           /* warm surface, a touch off background */
+  --sage: #7c8b76;
+  --charcoal: #232323;
+  --ring: rgba(124, 139, 118, 0.30);
 }
 
 /* iOS / macOS / Android system dark mode — automatically applied when
    the OS is in dark. No manual toggle. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #161512;      /* warm charcoal */
-    --foreground: #ece6da;      /* warm cream text */
-    --brand: #c79a45;           /* brightened gold for dark surfaces */
-    --brand-hover: #d9b679;     /* gold on hover */
-    --gold: #d9b679;
-    --deep-gold: #c79a45;
-    --cream: #f4eee3;
-    --sage: #93a085;
-    --charcoal: #1b1b1b;
-    --ring: rgba(217, 182, 121, 0.35);
+    --background: #1b1d1a;      /* warm charcoal-green */
+    --foreground: #ece9e2;      /* warm cream text */
+    --brand: #9dae95;           /* brightened sage for dark surfaces */
+    --brand-hover: #b4c1ac;     /* lighter sage on hover */
+    --gold: #b8c4b0;
+    --deep-gold: #9dae95;
+    --cream: #ece9e2;
+    --sage: #9dae95;
+    --charcoal: #232323;
+    --ring: rgba(157, 174, 149, 0.35);
   }
 }
 
@@ -50,16 +50,17 @@
   --font-display: var(--font-display), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Headings use the Montserrat display face for brand consistency.
-   Body copy stays on Inter (--font-sans). */
+/* Headings use the Cormorant Garamond display serif for an editorial,
+   minimalist-luxury feel. Body copy stays on Inter (--font-sans). */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
+  letter-spacing: 0.01em;
 }
 
 body {
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(169, 118, 30, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(147, 160, 133, 0.07), transparent 60%),
+    radial-gradient(1200px 600px at 10% -10%, rgba(124, 139, 118, 0.09), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(184, 176, 164, 0.10), transparent 60%),
     var(--background);
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -68,8 +69,8 @@ body {
 @media (prefers-color-scheme: dark) {
   body {
     background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(199, 154, 69, 0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(147, 160, 133, 0.08), transparent 60%),
+      radial-gradient(1200px 600px at 10% -10%, rgba(157, 174, 149, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(184, 176, 164, 0.07), transparent 60%),
       var(--background);
   }
 }

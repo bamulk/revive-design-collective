@@ -99,7 +99,7 @@ export async function sendInvoiceEmailFor(
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
           <tr>
-            <td bgcolor="#a9761e" style="border-radius:8px;">
+            <td bgcolor="#7c8b76" style="border-radius:8px;">
               <a href="${pdfUrl}" style="display:inline-block; padding:12px 22px; color:#ffffff; font-weight:600; text-decoration:none; font-family:-apple-system,system-ui,sans-serif;">View invoice PDF</a>
             </td>
           </tr>

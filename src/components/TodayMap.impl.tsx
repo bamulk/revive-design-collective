@@ -51,7 +51,7 @@ function colorIcon(hex: string) {
 function barnIcon() {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 36 44">
-      <path fill="#a9761e" stroke="white" stroke-width="2" d="M18 0C8 0 0 8 0 18c0 11 18 26 18 26s18-15 18-26C36 8 28 0 18 0z"/>
+      <path fill="#7c8b76" stroke="white" stroke-width="2" d="M18 0C8 0 0 8 0 18c0 11 18 26 18 26s18-15 18-26C36 8 28 0 18 0z"/>
       <text x="18" y="24" text-anchor="middle" font-size="14" fill="white">🏠</text>
     </svg>`;
   return L.divIcon({

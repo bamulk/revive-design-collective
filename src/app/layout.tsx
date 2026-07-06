@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, Montserrat } from "next/font/google";
+import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-// Display face for the brand wordmark (the "Revive | Design Collective" logo).
-const montserrat = Montserrat({
+// Editorial display serif for the brand wordmark ("Revive | Design
+// Collective") and all headings — a minimalist-luxury interior-design feel.
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
-  // Only the weights actually rendered: 200 (logo "Design Collective"),
-  // 400 (logo "Revive" + unweighted headings), 500/600 (font-medium /
-  // font-semibold headings). No font-light (300) or font-bold (700) in
-  // use, so they're not loaded.
-  weight: ["200", "400", "500", "600"],
+  // 400 (wordmark "Design Collective" + light headings), 500 (default
+  // headings), 600 (font-medium/semibold headings + wordmark "Revive").
+  weight: ["400", "500", "600"],
   variable: "--font-display",
 });
 
@@ -57,8 +56,8 @@ export const viewport = {
   // Two-tone theme color so the iOS PWA chrome matches whichever
   // system mode the user is in.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#a9761e" },
-    { media: "(prefers-color-scheme: dark)", color: "#161512" },
+    { media: "(prefers-color-scheme: light)", color: "#7c8b76" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1d1a" },
   ],
 };
 
@@ -66,7 +65,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${montserrat.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
         {children}
       </body>
