@@ -146,11 +146,12 @@ export default function SecondaryRecipientSection({
       ) : (
         <form onSubmit={onSubmit} className="space-y-2">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            For when the homeowner pays (or splits) with the client. Saving
-            adds them to every future invoice email
+            For when the homeowner pays (or splits) with the client. Applies
+            to this stage only — saving CCs them on this stage&apos;s future
+            invoice emails
             {hasSignatureEnvelope
-              ? " and immediately sends a fresh signature request to both signers."
-              : ". They'll be added to the contract the next time you send it for signature."}
+              ? " and immediately sends a fresh signature request for this stage to both signers."
+              : ". They'll be added to this stage's contract the next time you send it for signature."}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
