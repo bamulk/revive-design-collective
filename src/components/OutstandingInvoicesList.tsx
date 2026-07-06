@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { formatMDY } from "@/lib/time";
 import QuickMarkPaid from "@/components/QuickMarkPaid";
+import ResendInvoiceButton from "@/components/ResendInvoiceButton";
 
 export type OutstandingRow = {
   id: string;
@@ -15,6 +16,8 @@ export type OutstandingRow = {
   stage_date: string | null;
   destage_date: string | null;
   client_name: string | null;
+  client_email: string | null;
+  invoice_sent_at: string | null;
 };
 
 type SortKey =
@@ -181,8 +184,13 @@ export default function OutstandingInvoicesList({
                   </div>
                 </Link>
                 {isAdmin && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <QuickMarkPaid stageId={s.id} />
+                    <ResendInvoiceButton
+                      stageId={s.id}
+                      clientEmail={s.client_email}
+                      invoiceSentAt={s.invoice_sent_at}
+                    />
                   </div>
                 )}
               </div>
@@ -201,7 +209,7 @@ export default function OutstandingInvoicesList({
                     <th className="p-3 font-medium">Status</th>
                     <th className="p-3 font-medium text-right">Amount</th>
                     {isAdmin && (
-                      <th className="p-3 font-medium text-right">Mark paid</th>
+                      <th className="p-3 font-medium text-right">Actions</th>
                     )}
                   </tr>
                 </thead>
@@ -233,7 +241,12 @@ export default function OutstandingInvoicesList({
                       </td>
                       {isAdmin && (
                         <td className="p-3 text-right">
-                          <div className="inline-flex">
+                          <div className="inline-flex items-center gap-2">
+                            <ResendInvoiceButton
+                              stageId={s.id}
+                              clientEmail={s.client_email}
+                              invoiceSentAt={s.invoice_sent_at}
+                            />
                             <QuickMarkPaid stageId={s.id} />
                           </div>
                         </td>
