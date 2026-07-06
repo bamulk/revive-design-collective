@@ -8,12 +8,23 @@ import { requireTeamMember } from "@/lib/permissions";
 
 export default async function ClientDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
 
   await requireTeamMember();
   const { id } = await params;
+  const { from } = await searchParams;
+  // Honor a "came from a stage" back-target so ← returns to the stage
+  // the user clicked through from (predictable static href, same
+  // philosophy as BackLink — no history.back()). Strictly validated to
+  // an internal stage path so the param can't send anyone off-site.
+  const backToStage =
+    typeof from === "string" && /^\/stages\/[A-Za-z0-9-]+$/.test(from)
+      ? from
+      : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -46,8 +57,11 @@ export default async function ClientDetailPage({
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/clients" className="text-sm text-slate-700 dark:text-slate-300 hover:underline">
-          ← All clients
+        <Link
+          href={backToStage ?? "/clients"}
+          className="text-sm text-slate-700 dark:text-slate-300 hover:underline"
+        >
+          {backToStage ? "← Back to stage" : "← All clients"}
         </Link>
         <h1 className="text-2xl font-semibold mt-1">{client.name}</h1>
       </div>

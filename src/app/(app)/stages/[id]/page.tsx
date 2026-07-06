@@ -259,7 +259,7 @@ export default async function StageDetailPage({
           <p className="text-slate-700 dark:text-slate-300 text-sm mt-2">
             Client:{" "}
             <Link
-              href={`/clients/${stage.clients?.id}`}
+              href={`/clients/${stage.clients?.id}?from=${encodeURIComponent(`/stages/${id}`)}`}
               className="underline"
             >
               {stage.clients?.name}
