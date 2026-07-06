@@ -15,6 +15,7 @@ export type OutstandingRow = {
   status: string;
   stage_date: string | null;
   destage_date: string | null;
+  client_id: string | null;
   client_name: string | null;
   client_email: string | null;
   invoice_sent_at: string | null;
@@ -176,13 +177,25 @@ export default function OutstandingInvoicesList({
                   <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
                     {s.address}
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                    {s.client_name ?? "—"} · ${s.amount.toFixed(2)}
-                  </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {s.status} · stage {formatMDY(s.stage_date)}
+                    ${s.amount.toFixed(2)} · {s.status} · stage{" "}
+                    {formatMDY(s.stage_date)}
                   </div>
                 </Link>
+                {/* Client on its own line (a link can't nest inside the
+                    stage link above) — tapping it opens the client page. */}
+                <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                  {s.client_id ? (
+                    <Link
+                      href={`/clients/${s.client_id}`}
+                      className="underline decoration-dotted underline-offset-2 hover:text-brand"
+                    >
+                      {s.client_name ?? "Client"}
+                    </Link>
+                  ) : (
+                    (s.client_name ?? "—")
+                  )}
+                </div>
                 {isAdmin && (
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <QuickMarkPaid stageId={s.id} />
@@ -228,7 +241,16 @@ export default function OutstandingInvoicesList({
                         </Link>
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-300">
-                        {s.client_name ?? "—"}
+                        {s.client_id ? (
+                          <Link
+                            href={`/clients/${s.client_id}`}
+                            className="hover:text-brand underline decoration-dotted underline-offset-2"
+                          >
+                            {s.client_name ?? "Client"}
+                          </Link>
+                        ) : (
+                          (s.client_name ?? "—")
+                        )}
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-300">
                         {formatMDY(s.stage_date)}

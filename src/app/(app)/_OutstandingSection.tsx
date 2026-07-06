@@ -20,7 +20,7 @@ export default async function OutstandingSection() {
   const { data: unpaidList } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, status, invoice_sent_at, clients(name, email)",
+      "id, address, amount, stage_date, destage_date, status, invoice_sent_at, clients(id, name, email)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -56,6 +56,7 @@ export default async function OutstandingSection() {
               status: s.status,
               stage_date: s.stage_date,
               destage_date: s.destage_date,
+              client_id: s.clients?.id ?? null,
               client_name: s.clients?.name ?? null,
               client_email: s.clients?.email ?? null,
               invoice_sent_at: s.invoice_sent_at ?? null,
