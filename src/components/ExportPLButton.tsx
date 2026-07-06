@@ -36,6 +36,10 @@ export default function ExportPLButton({
       </select>
       <a
         href={`/api/finance/export-pl?year=${year}`}
+        // `download` exempts this link from the RouteLoader overlay —
+        // a CSV download never changes the pathname, so the overlay
+        // would otherwise hang until its safety timeout.
+        download
         className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
       >
         <FileDown size={14} /> Export P&amp;L

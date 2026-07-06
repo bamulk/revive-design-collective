@@ -11,6 +11,10 @@ import { requireAdmin } from "@/lib/require-admin";
 import RecentIncomeList, {
   type RecentIncomeRow,
 } from "@/components/RecentIncomeList";
+import TaxPackageCard, {
+  type TaxYearStats,
+} from "@/components/TaxPackageCard";
+import { fetchAllRows } from "@/lib/fetch-all";
 import PlaidSection from "./_PlaidSection";
 
 function categoryTone(
@@ -120,30 +124,63 @@ export default async function FinancePage() {
   await requireAdmin();
   const supabase = await createClient();
 
-  const [
-    { data: paidStages },
-    { data: expenses },
-    { data: stageDateRows },
-  ] = await Promise.all([
-    supabase
-      .from("stages")
-      .select(
-        "id, address, amount, paid_at, payment_method, clients(name)",
-      )
-      .not("paid_at", "is", null),
-    supabase
-      .from("expenses")
-      .select("id, date, amount, description, source, category")
-      .order("date", { ascending: false }),
-    // For the stages-per-month line + expected-revenue cap: every
-    // stage with a stage_date, skipping estimates + cancelled jobs.
-    supabase
-      .from("stages")
-      .select("stage_date, amount, paid_at")
-      .neq("status", "estimate")
-      .neq("status", "cancelled")
-      .not("stage_date", "is", null),
-  ]);
+  // Every query here feeds money totals, so ALL of them page through
+  // PostgREST's 1000-row cap via fetchAllRows — expenses crossed 1000
+  // rows in mid-2026 and an unbounded select silently truncated the
+  // dashboard + exports. Each query orders by a unique key (id) so
+  // pagination is stable.
+  const [paidStages, expenses, stageDateRows, paidExtensions, allPayments] =
+    await Promise.all([
+      fetchAllRows((from, to) =>
+        supabase
+          .from("stages")
+          .select(
+            "id, address, amount, paid_at, payment_method, clients(name)",
+          )
+          .not("paid_at", "is", null)
+          .order("id")
+          .range(from, to),
+      ),
+      fetchAllRows((from, to) =>
+        supabase
+          .from("expenses")
+          .select("id, date, amount, description, source, category")
+          .order("date", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      // For the stages-per-month line + expected-revenue cap: every
+      // stage with a stage_date, skipping estimates + cancelled jobs.
+      fetchAllRows((from, to) =>
+        supabase
+          .from("stages")
+          .select("id, stage_date, amount, paid_at")
+          .neq("status", "estimate")
+          .neq("status", "cancelled")
+          .not("stage_date", "is", null)
+          .order("id")
+          .range(from, to),
+      ),
+      // Paid 30-day extension fees — real revenue that used to be
+      // invisible to this page (tracked only in stage_extensions).
+      fetchAllRows((from, to) =>
+        supabase
+          .from("stage_extensions")
+          .select("id, amount, paid_at")
+          .not("paid_at", "is", null)
+          .order("id")
+          .range(from, to),
+      ),
+      // The payments ledger — the tax package's cash-basis income source
+      // (each payment on the date it was actually received).
+      fetchAllRows((from, to) =>
+        supabase
+          .from("stage_payments")
+          .select("id, amount, paid_at")
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
 
   // Recent income — last 30 paid stages, newest first. Used by the
   // RecentIncomeList component below the bar chart. Sorted client-side
@@ -169,6 +206,12 @@ export default async function FinancePage() {
 
   for (const row of paidStages ?? []) {
     if (!row.paid_at) continue;
+    const key = monthKey(String(row.paid_at));
+    const bucket = monthMap.get(key);
+    if (bucket) bucket.income += Number(row.amount ?? 0);
+  }
+  // Paid extension fees count as income in the month they were paid.
+  for (const row of paidExtensions ?? []) {
     const key = monthKey(String(row.paid_at));
     const bucket = monthMap.get(key);
     if (bucket) bucket.income += Number(row.amount ?? 0);
@@ -199,8 +242,17 @@ export default async function FinancePage() {
   const year = new Date().getFullYear();
   let ytdIncome = 0;
   let ytdExpense = 0;
+  // Stage income WITHOUT extensions — the "Avg per paid stage" stat
+  // divides by paid-stage count, so extension fees would inflate it.
+  let ytdStageIncome = 0;
   for (const row of paidStages ?? []) {
     if (row.paid_at && String(row.paid_at).startsWith(`${year}-`)) {
+      ytdIncome += Number(row.amount ?? 0);
+      ytdStageIncome += Number(row.amount ?? 0);
+    }
+  }
+  for (const row of paidExtensions ?? []) {
+    if (String(row.paid_at).startsWith(`${year}-`)) {
       ytdIncome += Number(row.amount ?? 0);
     }
   }
@@ -238,6 +290,12 @@ export default async function FinancePage() {
       ytdPaidStageCount += 1;
     }
   }
+  for (const row of paidExtensions ?? []) {
+    const d = String(row.paid_at).slice(0, 10);
+    if (d >= thirtyDaysAgo && d <= todayIso) {
+      last30Income += Number(row.amount ?? 0);
+    }
+  }
   for (const row of expenses ?? []) {
     if (row.date >= thirtyDaysAgo && row.date <= todayIso) {
       last30Expense += Number(row.amount ?? 0);
@@ -249,7 +307,8 @@ export default async function FinancePage() {
     if (d >= thirtyDaysAgo && d <= todayIso) last30Stages += 1;
   }
   const last30Net = last30Income - last30Expense;
-  const avgPerPaidStage = ytdPaidStageCount > 0 ? ytdIncome / ytdPaidStageCount : 0;
+  const avgPerPaidStage =
+    ytdPaidStageCount > 0 ? ytdStageIncome / ytdPaidStageCount : 0;
 
   // --- Quarterly summary for the current year ------------------------
   // Aggregate paidStages + expenses into 4 quarter buckets. Stages
@@ -264,6 +323,13 @@ export default async function FinancePage() {
     const ds = String(row.paid_at);
     if (!ds.startsWith(`${year}-`)) continue;
     const m = new Date(ds).getUTCMonth();
+    quarters[Math.floor(m / 3)].income += Number(row.amount ?? 0);
+  }
+  for (const row of paidExtensions ?? []) {
+    const ds = String(row.paid_at);
+    if (!ds.startsWith(`${year}-`)) continue;
+    const m = Number(ds.slice(5, 7)) - 1;
+    if (m < 0 || m > 11) continue;
     quarters[Math.floor(m / 3)].income += Number(row.amount ?? 0);
   }
   for (const row of expenses ?? []) {
@@ -310,7 +376,81 @@ export default async function FinancePage() {
     const y = Number(r.date.slice(0, 4));
     if (y >= 2020) yearSet.add(y);
   }
+  for (const r of allPayments ?? []) {
+    const y = Number(String(r.paid_at ?? "").slice(0, 4));
+    if (y >= 2020) yearSet.add(y);
+  }
+  for (const r of paidExtensions ?? []) {
+    const y = Number(String(r.paid_at ?? "").slice(0, 4));
+    if (y >= 2020) yearSet.add(y);
+  }
   const exportYears = Array.from(yearSet).sort((a, b) => b - a);
+
+  // --- Tax package: per-year cash-basis rollups -----------------------
+  // Income here comes from the payments LEDGER (each payment on its
+  // receipt date) + paid extension fees — the same sources the CSV
+  // exports use, so the card's numbers match the files it hands out.
+  const taxStats: Record<number, TaxYearStats> = {};
+  const incomeByYearMonth = new Map<string, number>(); // "YYYY-MM" -> $
+  const expenseByYearMonth = new Map<string, number>();
+  function ensureYear(y: number): TaxYearStats {
+    return (taxStats[y] ??= {
+      stagingIncome: 0,
+      extensionIncome: 0,
+      expenses: 0,
+      paymentCount: 0,
+      expenseCount: 0,
+      uncategorizedCount: 0,
+      monthsWithIncomeNoExpenses: 0,
+    });
+  }
+  for (const r of allPayments ?? []) {
+    const ds = String(r.paid_at ?? "");
+    const y = Number(ds.slice(0, 4));
+    if (y < 2020) continue;
+    const s = ensureYear(y);
+    s.stagingIncome += Number(r.amount ?? 0);
+    s.paymentCount += 1;
+    const ym = ds.slice(0, 7);
+    incomeByYearMonth.set(
+      ym,
+      (incomeByYearMonth.get(ym) ?? 0) + Number(r.amount ?? 0),
+    );
+  }
+  for (const r of paidExtensions ?? []) {
+    const ds = String(r.paid_at ?? "");
+    const y = Number(ds.slice(0, 4));
+    if (y < 2020) continue;
+    const s = ensureYear(y);
+    s.extensionIncome += Number(r.amount ?? 0);
+    s.paymentCount += 1;
+    const ym = ds.slice(0, 7);
+    incomeByYearMonth.set(
+      ym,
+      (incomeByYearMonth.get(ym) ?? 0) + Number(r.amount ?? 0),
+    );
+  }
+  for (const r of expenses ?? []) {
+    const y = Number(r.date.slice(0, 4));
+    if (y < 2020) continue;
+    const s = ensureYear(y);
+    s.expenses += Number(r.amount ?? 0);
+    s.expenseCount += 1;
+    if (!r.category) s.uncategorizedCount += 1;
+    const ym = r.date.slice(0, 7);
+    expenseByYearMonth.set(
+      ym,
+      (expenseByYearMonth.get(ym) ?? 0) + Number(r.amount ?? 0),
+    );
+  }
+  // Months where money came in but nothing was spent (per the records)
+  // — almost always a sign the bank import is behind, not reality.
+  for (const [ym, income] of incomeByYearMonth) {
+    if (income <= 0) continue;
+    if ((expenseByYearMonth.get(ym) ?? 0) > 0) continue;
+    const y = Number(ym.slice(0, 4));
+    if (taxStats[y]) taxStats[y].monthsWithIncomeNoExpenses += 1;
+  }
 
   // YTD category breakdown for the expense pie/legend.
   const ytdByCategory = new Map<string, number>();
@@ -451,6 +591,13 @@ export default async function FinancePage() {
           })}
         </div>
       </Card>
+
+      {/* Tax package — everything the CPA needs for a filing year. */}
+      <TaxPackageCard
+        years={exportYears}
+        defaultYear={year}
+        stats={taxStats}
+      />
 
       {/* YTD expenses by category */}
       {categoryTotals.length > 0 && (
