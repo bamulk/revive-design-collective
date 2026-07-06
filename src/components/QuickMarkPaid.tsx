@@ -79,14 +79,14 @@ export default function QuickMarkPaid({ stageId }: { stageId: string }) {
         onClick={onClick}
         disabled={pending}
         className="inline-flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2 py-1 disabled:opacity-60"
-        title={error ?? "Mark paid"}
+        title={error ?? "Mark as paid"}
       >
         {pending ? (
           <Loader2 size={12} className="animate-spin" />
         ) : (
           <Check size={12} />
         )}
-        Paid
+        Mark as paid
       </button>
     </div>
   );
