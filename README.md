@@ -18,13 +18,19 @@ This app needs its **own** Supabase project (do not reuse the original's).
    - `anon` public key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` secret key → `SUPABASE_SERVICE_ROLE_KEY` (server-only; needed for inviting/removing employees)
 
-### Make yourself an admin
+### Bootstrap the first admin
 
-After signing up the first time:
+The app is invite-only, so create the first user in the Supabase dashboard:
+**Authentication → Users → Add user → Create new user** (set a password and
+check "Auto Confirm User" — the signup trigger creates the `profiles` row).
+Then promote them:
 
 ```sql
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
+
+Further users are invited from the in-app **Employees** page (requires
+`RESEND_API_KEY` + `EMAIL_FROM`).
 
 ## 2. Environment
 
@@ -54,7 +60,7 @@ This project deploys to its **own Vercel account/team** (separate from the origi
 
 ## App structure
 
-- `/login` — sign in/up; `/portal` — client-facing portal
+- `/login` — sign in (invite-only; no self-signup); `/portal` — client-facing portal
 - `/` — dashboard with stats and upcoming stages
 - `/clients` — list/create; `/clients/[id]` — edit + their stages
 - `/stages` — list (+ board / calendar / map / groups views); `/stages/new` — create; `/stages/[id]` — edit, photos, contract, invoice
