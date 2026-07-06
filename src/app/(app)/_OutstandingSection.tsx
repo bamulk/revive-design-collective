@@ -14,12 +14,16 @@ import OutstandingInvoicesList, {
  */
 export default async function OutstandingSection() {
   const supabase = await createClient();
+  // amount > 0: internal stages (e.g. the owner's own listings) carry a
+  // $0 amount by design — the team tracks the work but nothing is
+  // billed, so they're not outstanding invoices.
   const { data: unpaidList } = await supabase
     .from("stages")
     .select(
       "id, address, amount, stage_date, destage_date, status, invoice_sent_at, clients(name, email)",
     )
     .is("paid_at", null)
+    .gt("amount", 0)
     .neq("status", "cancelled")
     .neq("status", "scheduled")
     .order("stage_date", { ascending: true, nullsFirst: false });
