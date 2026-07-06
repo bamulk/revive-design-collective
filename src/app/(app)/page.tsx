@@ -10,6 +10,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { Card, PageHeader, LinkButton } from "@/components/ui";
 import TeamTag from "@/components/TeamTag";
 import TodayMap, { type TodayMapPin } from "@/components/TodayMap";
@@ -136,15 +137,20 @@ export default async function DashboardPage() {
   // don't block first paint. We only pull the status-count rollup
   // and the today rows here.
   const [
-    { data: rows },
+    rows,
     { data: todayRows },
   ] = await Promise.all([
       // Estimates aren't part of the active pipeline — exclude from the
-      // dashboard count rollups.
-      supabase
-        .from("stages")
-        .select("status, stage_date, created_at")
-        .neq("status", "estimate"),
+      // dashboard count rollups. This is every non-estimate stage ever
+      // (~800 and growing), so page past the 1000-row cap.
+      fetchAllRows((from, to) =>
+        supabase
+          .from("stages")
+          .select("id, status, stage_date, created_at")
+          .neq("status", "estimate")
+          .order("id")
+          .range(from, to),
+      ),
       // Rows that belong on Today:
       //   - upcoming stages (scheduled) with stage_date <= today
       //   - destages: jobs in the 'destaged' status whose destage_date

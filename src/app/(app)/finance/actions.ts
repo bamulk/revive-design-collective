@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { parseBankOfAmericaCsv } from "@/lib/boa-csv";
 import { categorizeExpense } from "@/lib/expense-categorize";
 
@@ -50,15 +51,20 @@ export async function importBoaCsvAction(
     }
 
     // Pull existing external_ids so we can report duplicates accurately.
+    // A big paste (a year of activity) can match over 1000 rows, so page.
     const ids = parsed.rows
       .map((r) => r.externalId)
       .filter((x): x is string => !!x);
     let existing = new Set<string>();
     if (ids.length > 0) {
-      const { data: existingRows } = await supabase
-        .from("expenses")
-        .select("external_id")
-        .in("external_id", ids);
+      const existingRows = await fetchAllRows((from, to) =>
+        supabase
+          .from("expenses")
+          .select("external_id")
+          .in("external_id", ids)
+          .order("external_id")
+          .range(from, to),
+      );
       existing = new Set(
         (existingRows ?? []).map((r) => r.external_id as string)
       );
@@ -80,17 +86,24 @@ export async function importBoaCsvAction(
     }));
 
     // Use upsert on external_id (when present) so re-imports don't dupe.
-    const { data: inserted, error } = await supabase
+    // Count server-side instead of measuring the returned rows — the
+    // representation is subject to the same 1000-row cap as selects, so
+    // a big paste would under-report inserts.
+    const { count: insertedCount, error } = await supabase
       .from("expenses")
-      .upsert(payload, { onConflict: "external_id", ignoreDuplicates: true })
-      .select("id");
+      .upsert(payload, {
+        onConflict: "external_id",
+        ignoreDuplicates: true,
+        count: "exact",
+      });
     if (error) throw new Error(error.message);
 
-    const duplicates = parsed.rows.length - (inserted?.length ?? 0);
+    const inserted = insertedCount ?? 0;
+    const duplicates = parsed.rows.length - inserted;
     revalidatePath("/finance");
     return {
       ok: true,
-      inserted: inserted?.length ?? 0,
+      inserted,
       duplicates: Math.max(0, duplicates),
       creditsSkipped: parsed.skipped.credits,
       unparseableSkipped: parsed.skipped.unparseable,
@@ -152,10 +165,19 @@ export type RecategorizeResult =
 export async function recategorizeAllExpensesAction(): Promise<RecategorizeResult> {
   try {
     const supabase = await createClient();
-    const { data: rows, error: fetchErr } = await supabase
-      .from("expenses")
-      .select("id, description, category");
-    if (fetchErr) throw new Error(fetchErr.message);
+    // Expenses crossed 1000 rows in mid-2026 — an unbounded select here
+    // silently skipped everything past the cap, so page through.
+    const rows = await fetchAllRows<{
+      id: string;
+      description: string;
+      category: string | null;
+    }>((from, to) =>
+      supabase
+        .from("expenses")
+        .select("id, description, category")
+        .order("id")
+        .range(from, to),
+    );
 
     let updated = 0;
     // Walk through and only write the rows whose category would change

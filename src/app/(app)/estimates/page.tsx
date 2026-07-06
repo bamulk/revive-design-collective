@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PlusCircle, Mail, Check, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton, Card } from "@/components/ui";
 import { requireEstimateAccess } from "@/lib/permissions";
 import { formatMDY } from "@/lib/time";
@@ -15,12 +16,18 @@ export default async function EstimatesPage() {
   const supabase = await createClient();
 
   // Pending estimates (status = 'estimate') + a recent history of accepted
-  // and declined ones so the user can verify the loop closed.
-  const { data: pending } = await supabase
-    .from("stages")
-    .select("id, address, amount, stage_date, estimate_sent_at, clients(name)")
-    .eq("status", "estimate")
-    .order("created_at", { ascending: false });
+  // and declined ones so the user can verify the loop closed. Nothing
+  // forces a pending estimate to resolve, so stale ones accumulate —
+  // page past the 1000-row cap.
+  const pending = await fetchAllRows((from, to) =>
+    supabase
+      .from("stages")
+      .select("id, address, amount, stage_date, estimate_sent_at, clients(name)")
+      .eq("status", "estimate")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   const { data: recent } = await supabase
     .from("stages")

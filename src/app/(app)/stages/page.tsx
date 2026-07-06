@@ -6,6 +6,7 @@ import {
   Map as MapIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import StagesListView, { type StageRow } from "./StagesListView";
 
@@ -24,13 +25,19 @@ export default async function StagesPage() {
     : { data: null };
   const isAdmin = me?.role === "admin";
 
-  const { data: rows } = await supabase
-    .from("stages")
-    .select(
-      "id, address, city, status, stage_date, destage_date, amount, paid_at, team, destage_team, escrow, clients(name)",
-    )
-    .neq("status", "estimate")
-    .order("created_at", { ascending: false });
+  // Every non-estimate stage ever — pages past the 1000-row cap. The
+  // id tiebreaker keeps pagination stable when created_at ties.
+  const rows = await fetchAllRows((from, to) =>
+    supabase
+      .from("stages")
+      .select(
+        "id, address, city, status, stage_date, destage_date, amount, paid_at, team, destage_team, escrow, clients(name)",
+      )
+      .neq("status", "estimate")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   const stages: StageRow[] = (rows ?? []).map((s: any) => ({
     id: s.id,

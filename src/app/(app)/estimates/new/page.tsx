@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { createEstimateAction } from "../actions";
 import PackagePicker from "@/components/PackagePicker";
 import ClientSelect from "@/components/ClientSelect";
@@ -19,10 +20,16 @@ export default async function NewEstimatePage({
   await requireEstimateAccess();
   const { client } = await searchParams;
   const supabase = await createClient();
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name")
-    .order("name");
+  // The client picker needs every client — the list grows without
+  // bound, so page past the 1000-row cap.
+  const clients = await fetchAllRows((from, to) =>
+    supabase
+      .from("clients")
+      .select("id, name")
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
 
   return (
     <div className="space-y-6 max-w-2xl">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { updateEstimateAction } from "../../actions";
 import PackagePicker from "@/components/PackagePicker";
 import ClientSelect from "@/components/ClientSelect";
@@ -35,10 +36,16 @@ export default async function EditEstimatePage({
     .single();
   if (!stage || stage.status !== "estimate") notFound();
 
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name")
-    .order("name");
+  // The client picker needs every client — the list grows without
+  // bound, so page past the 1000-row cap.
+  const clients = await fetchAllRows((from, to) =>
+    supabase
+      .from("clients")
+      .select("id, name")
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
 
   const action = updateEstimateAction.bind(null, id);
   const addOns = (stage.add_ons ?? []) as SelectedAddOn[];

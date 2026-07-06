@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import MergeGroupForm from "@/components/MergeGroupForm";
 import ManualMergeForm from "@/components/ManualMergeForm";
 import BackLink from "@/components/BackLink";
@@ -23,13 +24,20 @@ export default async function MergeClientsPage() {
   const supabase = await createClient();
 
   // Pull all clients and stage counts (one extra round-trip; runs fast at
-  // 250-ish clients and 800 stages).
-  const [{ data: clients }, { data: stageCounts }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, name, email, phone")
-      .order("name"),
-    supabase.from("stages").select("client_id"),
+  // 250-ish clients and 800 stages). Both grow without bound — the stages
+  // scan includes estimates and is at the 1000-row cap already — so page.
+  const [clients, stageCounts] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from("clients")
+        .select("id, name, email, phone")
+        .order("name")
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("stages").select("id, client_id").order("id").range(from, to),
+    ),
   ]);
 
   const countByClient = new Map<string, number>();

@@ -1,5 +1,6 @@
 import { UserPlus, Merge } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { createClientAction } from "./actions";
 import { Card, PageHeader, Button, LinkButton } from "@/components/ui";
 import ClientsGrid, { type ClientCard } from "@/components/ClientsGrid";
@@ -10,15 +11,23 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage() {
   await requireTeamMember();
   const supabase = await createClient();
-  const [{ data: clients }, { data: stageRows }] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, name, email, phone")
-      // Alphabetical, case-insensitive. PostgREST honors "order"
-      // case-insensitively when the column collation is locale-aware,
-      // which clients.name is (text default collation).
-      .order("name", { ascending: true }),
-    supabase.from("stages").select("client_id"),
+  // Both lists grow without bound (the stages scan already includes
+  // estimates, putting it right at the 1000-row cap) — page through.
+  const [clients, stageRows] = await Promise.all([
+    fetchAllRows((from, to) =>
+      supabase
+        .from("clients")
+        .select("id, name, email, phone")
+        // Alphabetical, case-insensitive. PostgREST honors "order"
+        // case-insensitively when the column collation is locale-aware,
+        // which clients.name is (text default collation).
+        .order("name", { ascending: true })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAllRows((from, to) =>
+      supabase.from("stages").select("id, client_id").order("id").range(from, to),
+    ),
   ]);
 
   const stageCount = new Map<string, number>();

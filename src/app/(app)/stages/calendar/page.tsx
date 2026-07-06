@@ -1,5 +1,6 @@
 import { PlusCircle, Home as HomeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import CalendarView, { type CalendarStage } from "./CalendarView";
 
@@ -11,10 +12,16 @@ export const dynamic = "force-dynamic";
  */
 export default async function CalendarPage() {
   const supabase = await createClient();
-  const { data: stages } = await supabase
-    .from("stages")
-    .select("id, address, status, stage_date, destage_date, clients(name)")
-    .not("status", "in", "(cancelled,estimate)");
+  // Every non-cancelled/estimate stage ever (~800 and growing) — page
+  // past the 1000-row cap.
+  const stages = await fetchAllRows((from, to) =>
+    supabase
+      .from("stages")
+      .select("id, address, status, stage_date, destage_date, clients(name)")
+      .not("status", "in", "(cancelled,estimate)")
+      .order("id")
+      .range(from, to),
+  );
 
   const events: CalendarStage[] = (stages ?? []).map((s: any) => ({
     id: s.id,

@@ -1,5 +1,6 @@
 import { PlusCircle, LayoutList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import Board, { type BoardStage } from "./Board";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { THUMB } from "@/lib/photo-urls";
@@ -12,14 +13,20 @@ export default async function StagesBoardPage() {
 
   // Sort newest first: latest stage_date wins, with brand-new cards that
   // don't have a stage_date yet bubbling to the top by created_at.
-  const { data: stages } = await supabase
-    .from("stages")
-    .select(
-      "id, address, amount, status, stage_date, destage_date, first_photo_storage_path, clients(name), created_at",
-    )
-    .not("status", "in", "(cancelled,estimate)")
-    .order("stage_date", { ascending: false, nullsFirst: true })
-    .order("created_at", { ascending: false });
+  // Every non-cancelled/estimate stage ever (~800 and growing), so page
+  // past the 1000-row cap with a unique id tiebreaker.
+  const stages = await fetchAllRows((from, to) =>
+    supabase
+      .from("stages")
+      .select(
+        "id, address, amount, status, stage_date, destage_date, first_photo_storage_path, clients(name), created_at",
+      )
+      .not("status", "in", "(cancelled,estimate)")
+      .order("stage_date", { ascending: false, nullsFirst: true })
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   const stageIds = new Set((stages ?? []).map((s) => s.id));
 
@@ -53,9 +60,14 @@ export default async function StagesBoardPage() {
 
   // Task counts per stage from the pre-aggregated view (~801 rows
   // instead of scanning the whole stage_tasks table and counting here).
-  const { data: taskRows } = await supabase
-    .from("stage_task_counts")
-    .select("stage_id, total, done");
+  // One row per stage, so this crosses 1000 alongside the stages table.
+  const taskRows = await fetchAllRows((from, to) =>
+    supabase
+      .from("stage_task_counts")
+      .select("stage_id, total, done")
+      .order("stage_id")
+      .range(from, to),
+  );
   const taskCounts = new Map<string, { done: number; total: number }>();
   for (const t of (taskRows ?? []) as any[]) {
     if (!stageIds.has(t.stage_id)) continue;

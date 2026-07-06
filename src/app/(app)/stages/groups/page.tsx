@@ -1,5 +1,6 @@
 import { PlusCircle, CalendarDays, Map as MapIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { getBarnCoords, haversineMiles } from "@/lib/distance";
 import GroupsView, { type GroupStage } from "./GroupsView";
@@ -25,15 +26,21 @@ export default async function StagesGroupsPage() {
     : { data: null };
   const isAdmin = me?.role === "admin";
 
-  const { data: stages } = await supabase
-    .from("stages")
-    .select(
-      "id, address, city, neighborhood, amount, status, stage_date, destage_date, paid_at, lat, lng, square_footage, bedrooms, bathrooms, primary_only, team, destage_team, escrow, first_photo_storage_path, clients(name)"
-    )
-    // Estimates live in their own /estimates page; hide them from the board.
-    .neq("status", "estimate")
-    .order("stage_date", { ascending: false, nullsFirst: true })
-    .order("created_at", { ascending: false });
+  // Every non-estimate stage ever (~800 and growing) — page past the
+  // 1000-row cap with a unique id tiebreaker.
+  const stages = await fetchAllRows((from, to) =>
+    supabase
+      .from("stages")
+      .select(
+        "id, address, city, neighborhood, amount, status, stage_date, destage_date, paid_at, lat, lng, square_footage, bedrooms, bathrooms, primary_only, team, destage_team, escrow, first_photo_storage_path, clients(name)"
+      )
+      // Estimates live in their own /estimates page; hide them from the board.
+      .neq("status", "estimate")
+      .order("stage_date", { ascending: false, nullsFirst: true })
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   // Photos and tasks: fetch all and group client-side (same approach as
   // the board page — .in() with hundreds of UUIDs blows past PostgREST's
@@ -69,9 +76,14 @@ export default async function StagesGroupsPage() {
   const stageIdSet = new Set((stages ?? []).map((s: any) => s.id));
   // Task counts per stage from the pre-aggregated view (~801 rows
   // instead of scanning the whole stage_tasks table and counting here).
-  const { data: taskRows } = await supabase
-    .from("stage_task_counts")
-    .select("stage_id, total, done");
+  // One row per stage, so this crosses 1000 alongside the stages table.
+  const taskRows = await fetchAllRows((from, to) =>
+    supabase
+      .from("stage_task_counts")
+      .select("stage_id, total, done")
+      .order("stage_id")
+      .range(from, to),
+  );
   const taskCounts = new Map<string, { done: number; total: number }>();
   for (const t of (taskRows ?? []) as any[]) {
     if (!stageIdSet.has(t.stage_id)) continue;
