@@ -6,9 +6,13 @@
 //   EMAIL_FROM         - "Revive Design Collective <invoices@yourdomain.com>"
 //                        The domain must be verified at
 //                        https://resend.com/domains
+//   EMAIL_REPLY_TO     - (optional) default Reply-To for all app email,
+//                        e.g. a monitored inbox like lauren@revivedesigncollective.com.
+//                        Falls back to EMAIL_FROM when unset; a per-send
+//                        replyTo still overrides it.
 //
-// Both are required at send time; isEmailConfigured() tells the UI
-// whether to enable the Send button.
+// RESEND_API_KEY + EMAIL_FROM are required at send time; isEmailConfigured()
+// tells the UI whether to enable the Send button.
 
 import { Resend } from "resend";
 
@@ -27,7 +31,7 @@ export type EmailInput = {
   text: string;
   /** HTML body — render with care since clients vary. */
   html: string;
-  /** Optional Reply-To. Defaults to EMAIL_FROM. */
+  /** Optional Reply-To. Defaults to EMAIL_REPLY_TO, else EMAIL_FROM. */
   replyTo?: string;
 };
 
@@ -48,7 +52,9 @@ export async function sendEmail(input: EmailInput): Promise<{ id: string }> {
     subject: input.subject,
     text: input.text,
     html: input.html,
-    replyTo: input.replyTo,
+    // Per-send replyTo wins; otherwise route replies to the configured
+    // monitored inbox; otherwise Resend defaults Reply-To to `from`.
+    replyTo: input.replyTo ?? process.env.EMAIL_REPLY_TO ?? undefined,
   });
   if (result.error) {
     throw new Error(`Resend ${result.error.name}: ${result.error.message}`);
