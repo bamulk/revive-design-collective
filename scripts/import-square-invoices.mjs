@@ -75,14 +75,24 @@ function readDotEnv() {
   const envPath = path.resolve(".env.local");
   if (!fs.existsSync(envPath)) return;
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
     if (!m) continue;
-    if (!process.env[m[1]]) process.env[m[1]] = m[2];
+    let val = m[2];
+    // Strip surrounding quotes the way dotenv/Next does, so a value like
+    // NEXT_PUBLIC_SUPABASE_URL="https://x.supabase.co" doesn't carry the
+    // quotes into the request and break fetch.
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[m[1]]) process.env[m[1]] = val;
   }
 }
 function makeSupabase() {
   readDotEnv();
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!SUPABASE_URL || !SERVICE_KEY) {
     console.error(
@@ -90,6 +100,18 @@ function makeSupabase() {
     );
     process.exit(1);
   }
+  SUPABASE_URL = SUPABASE_URL.trim().replace(/\/+$/, "");
+  let host;
+  try {
+    host = new URL(SUPABASE_URL).host;
+  } catch {
+    console.error(
+      `NEXT_PUBLIC_SUPABASE_URL is not a valid URL: "${SUPABASE_URL}"\n` +
+        "It should look like https://<project-ref>.supabase.co",
+    );
+    process.exit(1);
+  }
+  console.log(`Connecting to Supabase at ${host} ...`);
   return createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false },
   });
