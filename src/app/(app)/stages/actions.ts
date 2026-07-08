@@ -1740,6 +1740,8 @@ export async function markExtensionPaidAction(
     if (error) throw new Error(error.message);
     await mirrorLatestExtensionToStage(stageId);
     revalidatePath(`/stages/${stageId}`);
+    // Also used from the dashboard's Outstanding extensions section.
+    revalidatePath("/");
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Mark paid failed" };

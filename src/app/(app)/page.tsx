@@ -15,6 +15,7 @@ import { Card, PageHeader, LinkButton } from "@/components/ui";
 import TeamTag from "@/components/TeamTag";
 import TodayMap, { type TodayMapPin } from "@/components/TodayMap";
 import OutstandingSection from "./_OutstandingSection";
+import OutstandingExtensionsSection from "./_OutstandingExtensionsSection";
 import CurrentlyStagedSection from "./_CurrentlyStagedSection";
 import PendingListingsSection from "./_PendingListingsSection";
 import NeedPicturesSection from "./_NeedPicturesSection";
@@ -531,6 +532,15 @@ export default async function DashboardPage() {
       {isAdmin && (
         <Suspense fallback={<SectionFallback title="Outstanding invoices" />}>
           <OutstandingSection />
+        </Suspense>
+      )}
+
+      {/* Outstanding 30-day extensions — same pattern, extensions twin. */}
+      {isAdmin && (
+        <Suspense
+          fallback={<SectionFallback title="Outstanding extensions" />}
+        >
+          <OutstandingExtensionsSection />
         </Suspense>
       )}
 
