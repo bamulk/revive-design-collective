@@ -25,6 +25,14 @@ type Props = {
    * inputs, since there's no form to submit to in read-only mode).
    */
   compact?: boolean;
+  /**
+   * Rendered between the pricing inputs and the subtotal box, in BOTH
+   * modes — the slot the forms use for <CustomLineItemsFields />. Kept
+   * outside the mode branches so it stays mounted when the admin flips
+   * Package <-> Custom price (unmounting would wipe typed rows).
+   * Ignored in compact mode.
+   */
+  beforeSummary?: React.ReactNode;
 };
 
 /**
@@ -42,6 +50,7 @@ export default function PackagePicker({
   defaultDiscount = 0,
   defaultCustomAmount = null,
   compact = false,
+  beforeSummary = null,
 }: Props) {
   const [packageKey, setPackageKey] = useState<string | null>(defaultPackageKey);
   const [addOnQty, setAddOnQty] = useState<Record<string, number>>(() => {
@@ -189,9 +198,6 @@ export default function PackagePicker({
             will show a single &ldquo;Home staging&rdquo; line item for this
             amount.
           </p>
-          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 mt-3 text-sm space-y-1">
-            <Row label="Custom price" value={customAmount} bold />
-          </div>
         </div>
       ) : (
         <PackageMode
@@ -201,8 +207,44 @@ export default function PackagePicker({
           setAddOnQty={setAddOnQty}
           discount={discount}
           setDiscount={setDiscount}
-          breakdown={breakdown}
         />
+      )}
+
+      {/* Slot for custom line items — after the pricing inputs, above
+          the subtotal box, mounted continuously across mode flips. */}
+      {beforeSummary}
+
+      {/* Subtotal box — hoisted out of the mode branches so the slot
+          above renders between the inputs and this box in both modes. */}
+      {customMode ? (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm space-y-1">
+          <Row label="Custom price" value={customAmount} bold />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 space-y-1 text-sm">
+          {breakdown.package ? (
+            <Row
+              label={breakdown.package.label}
+              value={breakdown.package.price}
+            />
+          ) : (
+            <div className="text-slate-500 dark:text-slate-400 italic">
+              Select a package…
+            </div>
+          )}
+          {breakdown.addOns.map((a) => (
+            <Row
+              key={a.addOn.key}
+              label={`${a.addOn.label} × ${a.qty}`}
+              value={a.subtotal}
+            />
+          ))}
+          {breakdown.discount > 0 && (
+            <Row label="Discount" value={-breakdown.discount} />
+          )}
+          <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
+          <Row label="Package subtotal" value={breakdown.total} bold />
+        </div>
       )}
     </div>
   );
@@ -215,7 +257,6 @@ function PackageMode({
   setAddOnQty,
   discount,
   setDiscount,
-  breakdown,
 }: {
   packageKey: string | null;
   setPackageKey: (k: string | null) => void;
@@ -223,9 +264,7 @@ function PackageMode({
   setAddOnQty: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   discount: number;
   setDiscount: (n: number) => void;
-  breakdown: ReturnType<typeof computePrice>;
 }) {
-  const grandTotal = breakdown.total;
   return (
     <div className="space-y-4">
       {/* Packages */}
@@ -342,26 +381,6 @@ function PackageMode({
         </div>
       </div>
 
-      {/* Breakdown */}
-      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 space-y-1 text-sm">
-        {breakdown.package ? (
-          <Row label={breakdown.package.label} value={breakdown.package.price} />
-        ) : (
-          <div className="text-slate-500 dark:text-slate-400 italic">Select a package…</div>
-        )}
-        {breakdown.addOns.map((a) => (
-          <Row
-            key={a.addOn.key}
-            label={`${a.addOn.label} × ${a.qty}`}
-            value={a.subtotal}
-          />
-        ))}
-        {breakdown.discount > 0 && (
-          <Row label="Discount" value={-breakdown.discount} />
-        )}
-        <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
-        <Row label="Package subtotal" value={grandTotal} bold />
-      </div>
     </div>
   );
 }

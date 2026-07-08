@@ -101,6 +101,11 @@ export default async function EditEstimatePage({
           defaultAddOns={addOns}
           defaultDiscount={Number(stage.discount ?? 0)}
           defaultCustomAmount={Number(stage.amount ?? 0)}
+          beforeSummary={
+            <CustomLineItemsFields
+              defaultItems={parseLineItems(stage.line_items)}
+            />
+          }
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -168,8 +173,6 @@ export default async function EditEstimatePage({
           defaultEscrow={!!stage.escrow}
           defaultTravelFee={Number(stage.travel_fee ?? 0)}
         />
-
-        <CustomLineItemsFields defaultItems={parseLineItems(stage.line_items)} />
 
         <SecondaryRecipientFields
           defaultEnabled={!!(stage.secondary_recipient_name && stage.secondary_recipient_email)}

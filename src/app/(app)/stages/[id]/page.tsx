@@ -353,6 +353,11 @@ export default async function StageDetailPage({
             defaultAddOns={(stage.add_ons ?? []) as SelectedAddOn[]}
             defaultDiscount={Number(stage.discount ?? 0)}
             defaultCustomAmount={Number(stage.amount ?? 0)}
+            beforeSummary={
+              <CustomLineItemsFields
+                defaultItems={parseLineItems(stage.line_items)}
+              />
+            }
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -426,7 +431,6 @@ export default async function StageDetailPage({
             defaultEscrow={!!stage.escrow}
             defaultTravelFee={Number(stage.travel_fee ?? 0)}
           />
-          <CustomLineItemsFields defaultItems={parseLineItems(stage.line_items)} />
           <div className="flex flex-col sm:flex-row gap-3">
             <SubmitButton
               pendingLabel="Saving…"

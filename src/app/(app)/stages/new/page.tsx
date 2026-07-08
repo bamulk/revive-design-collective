@@ -60,7 +60,7 @@ export default async function NewStagePage({
           />
         </label>
         <PropertyDetailsFields />
-        <PackagePicker />
+        <PackagePicker beforeSummary={<CustomLineItemsFields />} />
 
         <label className="block text-sm">
           Stage date
@@ -106,7 +106,6 @@ export default async function NewStagePage({
           </span>
         </label>
         <ExtraFeesFields />
-        <CustomLineItemsFields />
         <SecondaryRecipientFields />
         <PhotoPicker />
         <SubmitButton pendingLabel="Creating stage…">Create stage</SubmitButton>

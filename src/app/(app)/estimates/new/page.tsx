@@ -62,7 +62,7 @@ export default async function NewEstimatePage({
           />
         </label>
         <PropertyDetailsFields />
-        <PackagePicker />
+        <PackagePicker beforeSummary={<CustomLineItemsFields />} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block text-sm">
@@ -121,8 +121,6 @@ export default async function NewEstimatePage({
         </label>
 
         <ExtraFeesFields />
-
-        <CustomLineItemsFields />
 
         <SecondaryRecipientFields />
 
