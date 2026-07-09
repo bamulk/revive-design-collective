@@ -31,13 +31,15 @@ export default async function PortalHomePage() {
       supabase
         .from("stages")
         .select(
-          "id, address, city, status, stage_date, destage_date, amount, paid_at",
+          "id, address, city, status, stage_date, destage_date, amount, paid_at, invoice_pdf_url",
         )
         .neq("status", "estimate")
         .order("stage_date", { ascending: false, nullsFirst: false }),
       supabase
         .from("stage_extensions")
-        .select("id, stage_id, extension_date, amount, paid_at, created_at")
+        .select(
+          "id, stage_id, extension_date, amount, paid_at, pdf_url, created_at",
+        )
         .order("extension_date", { ascending: false }),
       supabase
         .from("stage_payments")
@@ -54,6 +56,7 @@ export default async function PortalHomePage() {
     destage_date: string | null;
     amount: number | null;
     paid_at: string | null;
+    invoice_pdf_url: string | null;
   }>;
 
   const extsByStage = new Map<string, PortalCard["exts"]>();
@@ -64,6 +67,7 @@ export default async function PortalHomePage() {
       extension_date: e.extension_date,
       amount: e.amount,
       paid_at: e.paid_at,
+      pdf_url: e.pdf_url ?? null,
     });
     extsByStage.set(e.stage_id, arr);
   }

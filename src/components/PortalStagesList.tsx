@@ -24,6 +24,9 @@ export type PortalExtension = {
   extension_date: string;
   amount: number | null;
   paid_at: string | null;
+  /** Extension invoice PDF (public contracts-bucket URL) — clients can
+   *  open it straight from the portal. */
+  pdf_url: string | null;
 };
 export type PortalCard = {
   id: string;
@@ -34,6 +37,8 @@ export type PortalCard = {
   destage_date: string | null;
   amount: number | null;
   paid_at: string | null;
+  /** Stage invoice PDF — same URL the invoice email links to. */
+  invoice_pdf_url: string | null;
   paidSoFar: number;
   outstanding: number;
   paymentState: "paid" | "partial" | "unpaid";
@@ -148,6 +153,16 @@ export default function PortalStagesList({ cards }: { cards: PortalCard[] }) {
                   </Cell>
                   <Cell label="Amount">
                     {s.amount != null ? fmtMoney(Number(s.amount)) : "—"}
+                    {s.invoice_pdf_url && (
+                      <a
+                        href={s.invoice_pdf_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block text-xs text-brand hover:text-brand-hover underline underline-offset-2 mt-0.5"
+                      >
+                        View invoice PDF
+                      </a>
+                    )}
                   </Cell>
                   <Cell label="Payment">
                     {s.paymentState === "paid" && (
@@ -240,6 +255,16 @@ export default function PortalStagesList({ cards }: { cards: PortalCard[] }) {
                               <span className="text-xs font-medium text-rose-700 dark:text-rose-300">
                                 Unpaid
                               </span>
+                            )}
+                            {e.pdf_url && (
+                              <a
+                                href={e.pdf_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-brand hover:text-brand-hover underline underline-offset-2"
+                              >
+                                Invoice PDF
+                              </a>
                             )}
                           </span>
                         </li>
