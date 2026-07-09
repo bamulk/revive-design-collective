@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateClientAction, deleteClientAction } from "../actions";
 import PortalInviteButton from "@/components/PortalInviteButton";
 import ClientStagesCards from "@/components/ClientStagesCards";
 import { requireTeamMember } from "@/lib/permissions";
+import { formatMDY } from "@/lib/time";
 
 export default async function ClientDetailPage({
   params,
@@ -50,6 +52,35 @@ export default async function ClientDetailPage({
     )
     .eq("client_id", id)
     .order("created_at", { ascending: false });
+
+  // 30-day extensions across this client's stages — same data the
+  // client sees in their portal (date, amount, paid) plus the internal
+  // invoice-PDF link. Bounded per-client, so no pagination needed.
+  const stageIds = (stages ?? []).map((s: any) => s.id);
+  const { data: extRows } =
+    stageIds.length > 0
+      ? await supabase
+          .from("stage_extensions")
+          .select("id, stage_id, extension_date, amount, paid_at, pdf_url")
+          .in("stage_id", stageIds)
+          .order("extension_date", { ascending: false })
+      : { data: [] as any[] };
+  const addressByStage = new Map(
+    (stages ?? []).map((s: any) => [s.id, s.address as string]),
+  );
+  const extensions = (extRows ?? []).map((x: any) => ({
+    id: x.id as string,
+    stageId: x.stage_id as string,
+    address: addressByStage.get(x.stage_id) ?? "—",
+    extensionDate: (x.extension_date as string | null) ?? null,
+    amount: Number(x.amount ?? 0),
+    paidAt: (x.paid_at as string | null) ?? null,
+    pdfUrl: (x.pdf_url as string | null) ?? null,
+  }));
+  const extBilled = extensions.reduce((s, x) => s + x.amount, 0);
+  const extUnpaid = extensions
+    .filter((x) => !x.paidAt)
+    .reduce((s, x) => s + x.amount, 0);
 
   const update = updateClientAction.bind(null, id);
   const del = deleteClientAction.bind(null, id);
@@ -112,6 +143,73 @@ export default async function ClientDetailPage({
           </Link>
         </div>
         <ClientStagesCards stages={(stages ?? []) as any} />
+      </section>
+
+      {/* 30-day extensions across this client's stages. Clients see
+          the same info (minus the PDF link) in their portal. */}
+      <section>
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <h2 className="text-lg font-semibold">Extensions</h2>
+          {extensions.length > 0 && (
+            <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+              ${extBilled.toFixed(2)} billed
+              {extUnpaid > 0 && ` · $${extUnpaid.toFixed(2)} unpaid`}
+            </span>
+          )}
+        </div>
+        {extensions.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400 italic px-1">
+            No extensions yet.
+          </p>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 border rounded-xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+            {extensions.map((x) => (
+              <div
+                key={x.id}
+                className="p-3 sm:p-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5"
+              >
+                <div className="min-w-0">
+                  <Link
+                    href={`/stages/${x.stageId}`}
+                    className="font-medium text-sm text-slate-900 dark:text-slate-100 hover:text-brand"
+                  >
+                    {x.address}
+                  </Link>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Extended through{" "}
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {formatMDY(x.extensionDate)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-medium tabular-nums">
+                    ${x.amount.toFixed(2)}
+                  </span>
+                  {x.paidAt ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/50">
+                      <CheckCircle2 size={11} /> Paid
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/50">
+                      Unpaid
+                    </span>
+                  )}
+                  {x.pdfUrl && (
+                    <a
+                      href={x.pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-brand hover:text-brand-hover underline underline-offset-2"
+                    >
+                      Invoice PDF
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
