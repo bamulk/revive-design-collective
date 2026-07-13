@@ -1452,6 +1452,36 @@ export async function updateStageClientAction(
 }
 
 /**
+ * Set (or clear) the photographer arrival time for a stage — the
+ * deadline the staging work must beat. Admin-only; stagers and lead
+ * stagers see it (with a countdown) on the stage page. The client
+ * converts its datetime-local input to ISO/UTC before calling, so DST
+ * is already handled.
+ */
+export async function updatePhotographerAtAction(
+  stageId: string,
+  iso: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  let value: string | null = null;
+  if (iso != null && iso !== "") {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return { ok: false, error: "Invalid date/time." };
+    }
+    value = d.toISOString();
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("stages")
+    .update({ photographer_at: value })
+    .eq("id", stageId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/stages/${stageId}`);
+  return { ok: true };
+}
+
+/**
  * Inline single-field autosave for the stage detail page (admin only).
  * Whitelisted to operational fields — stage_date, destage_date,
  * lockbox_code, notes. Editing stage_date keeps the destage_date

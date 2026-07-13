@@ -40,6 +40,7 @@ import CustomLineItemsFields from "@/components/CustomLineItemsFields";
 import AdvanceStatusButton from "@/components/AdvanceStatusButton";
 import StatusControl from "@/components/StatusControl";
 import StageClientControl from "@/components/StageClientControl";
+import PhotographerBox from "@/components/PhotographerBox";
 import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
@@ -547,6 +548,13 @@ export default async function StageDetailPage({
               </Field>
             </div>
           )}
+          {/* Photographer deadline — staging must be done before this.
+              Admins edit; the whole team sees the countdown. */}
+          <PhotographerBox
+            stageId={id}
+            photographerAt={stage.photographer_at ?? null}
+            canEdit={isAdmin}
+          />
           {(stage.square_footage || stage.bedrooms || stage.bathrooms) && (
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
