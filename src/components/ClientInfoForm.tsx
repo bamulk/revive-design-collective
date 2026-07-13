@@ -28,6 +28,8 @@ export default function ClientInfoForm({
     phone: string;
     address: string;
     notes: string;
+    /** false = escrow payer, skip automated payment-reminder emails. */
+    paymentReminders: boolean;
   };
 }) {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
@@ -81,6 +83,22 @@ export default function ClientInfoForm({
         placeholder="Notes"
         className="md:col-span-2 border rounded px-3 py-2.5 text-base"
       />
+      <label className="md:col-span-2 flex items-start gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          name="no_payment_reminders"
+          defaultChecked={!defaults.paymentReminders}
+          className="mt-0.5 h-4 w-4 accent-brand"
+        />
+        <span>
+          Pays through escrow — don&rsquo;t send payment reminders
+          <span className="block text-xs text-slate-500 dark:text-slate-400">
+            Turns off the automated unpaid-invoice reminder emails (first
+            one 5 days after an invoice is sent, then every 3 days, up to
+            5 reminders) for this client&rsquo;s stages and extensions.
+          </span>
+        </span>
+      </label>
       <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-3">
         <button
           disabled={status === "saving"}

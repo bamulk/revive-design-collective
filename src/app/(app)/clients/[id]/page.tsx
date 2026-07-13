@@ -108,6 +108,7 @@ export default async function ClientDetailPage({
           phone: client.phone ?? "",
           address: client.address ?? "",
           notes: client.notes ?? "",
+          paymentReminders: client.payment_reminders !== false,
         }}
       />
 
