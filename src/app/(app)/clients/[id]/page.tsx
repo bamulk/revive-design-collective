@@ -4,6 +4,7 @@ import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateClientAction, deleteClientAction } from "../actions";
 import PortalInviteButton from "@/components/PortalInviteButton";
+import ClientInfoForm from "@/components/ClientInfoForm";
 import ClientStagesCards from "@/components/ClientStagesCards";
 import { requireTeamMember } from "@/lib/permissions";
 import { formatMDY } from "@/lib/time";
@@ -97,22 +98,18 @@ export default async function ClientDetailPage({
         <h1 className="text-2xl font-semibold mt-1">{client.name}</h1>
       </div>
 
-      <form data-no-loader action={update} className="bg-white dark:bg-slate-900 border rounded-xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <input name="name" required defaultValue={client.name} className="border rounded px-3 py-2.5 text-base" />
-        <input name="email" defaultValue={client.email ?? ""} placeholder="Email" className="border rounded px-3 py-2.5 text-base" />
-        <input name="phone" defaultValue={client.phone ?? ""} placeholder="Phone" className="border rounded px-3 py-2.5 text-base" />
-        <input name="address" defaultValue={client.address ?? ""} placeholder="Address" className="border rounded px-3 py-2.5 text-base" />
-        <textarea name="notes" defaultValue={client.notes ?? ""} placeholder="Notes" className="md:col-span-2 border rounded px-3 py-2.5 text-base" />
-        <div className="md:col-span-2 flex flex-col sm:flex-row gap-3">
-          <button className="bg-slate-900 text-white rounded-lg px-4 py-2.5">Save</button>
-          {/* Deleting a client is admin-only. */}
-          {isAdmin && (
-            <button formAction={del} className="text-red-600 rounded-lg px-4 py-2.5 border border-red-200">
-              Delete
-            </button>
-          )}
-        </div>
-      </form>
+      <ClientInfoForm
+        updateAction={update}
+        deleteAction={del}
+        isAdmin={isAdmin}
+        defaults={{
+          name: client.name,
+          email: client.email ?? "",
+          phone: client.phone ?? "",
+          address: client.address ?? "",
+          notes: client.notes ?? "",
+        }}
+      />
 
       {/* Portal access — send the client a one-click sign-in link to
           the client portal. Admin-only (the action requires admin). */}
