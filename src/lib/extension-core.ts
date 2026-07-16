@@ -143,6 +143,13 @@ Thanks for choosing Revive Design Collective!`;
 export async function generateExtensionInvoice(
   stage: any,
   overrideAmount?: number,
+  /**
+   * The new destage date the extension runs through. Callers that also
+   * WRITE the stage's destage_date (the /x auto flow) must pass the
+   * same value here so the invoice and the stage can never disagree —
+   * they diverged once when this was computed in two places.
+   */
+  newDestageIso?: string,
 ): Promise<{
   url: string;
   amount: number;
@@ -241,10 +248,18 @@ export async function extendStage(
     }
 
     const supabase = createAdminClient();
-    const { url, amount } = await generateExtensionInvoice(stage);
+    // A 30-day extension — computed ONCE and passed into the invoice
+    // generator so the PDF and the stage row always agree. (This was
+    // previously computed in two places, and this copy said 60 — the
+    // stage jumped two months while the client's invoice said one.)
     const newDestage = addDaysISO(
       stage.destage_date ?? todayPacificISO(),
-      60,
+      30,
+    );
+    const { url, amount } = await generateExtensionInvoice(
+      stage,
+      undefined,
+      newDestage,
     );
 
     // Insert a per-extension history row (source of truth for the
