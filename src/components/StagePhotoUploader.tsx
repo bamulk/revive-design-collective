@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Camera,
+  CloudUpload,
   Loader2,
   X,
   Image as ImageIcon,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { compressImage } from "@/lib/image-compress";
 import { createClient } from "@/lib/supabase/client";
+import { addToOutbox, isNetworkError } from "@/lib/photo-outbox";
 
 /**
  * Auto-uploading multi-photo/-video picker for the stage detail page.
@@ -31,7 +33,7 @@ import { createClient } from "@/lib/supabase/client";
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
 const BUCKET = "stage-photos";
 
-type Status = "optimizing" | "uploading" | "error";
+type Status = "optimizing" | "uploading" | "queued" | "error";
 
 type Item = {
   // Stable id for keying / removal even before we have a File.
@@ -179,19 +181,55 @@ export default function StagePhotoUploader({
       });
       return;
     }
+
+    // Plainly offline? Skip the doomed attempt and queue straight away.
+    if (stageId && typeof navigator !== "undefined" && !navigator.onLine) {
+      await queueForLater(id, compressed);
+      return;
+    }
     updateItem(id, { file: compressed, status: "uploading" });
 
     try {
       const fd = new FormData();
       fd.set("file", compressed);
+      // Stable key → deterministic storage path server-side, so a
+      // retried upload (flaky link, outbox drain) can't duplicate.
+      fd.set("client_key", id);
       await action(fd);
       // Success — drop from local state. The parent grid will refresh
       // via revalidatePath inside the server action.
       removeItem(id);
     } catch (e: any) {
+      // Network-shaped failures go to the offline outbox instead of
+      // being lost — the photo uploads itself when signal returns.
+      if (stageId && isNetworkError(e)) {
+        await queueForLater(id, compressed);
+        return;
+      }
       updateItem(id, {
         status: "error",
         error: e?.message || "Upload failed",
+      });
+    }
+  }
+
+  /** Park a compressed photo in the offline outbox (see photo-outbox). */
+  async function queueForLater(itemId: string, file: File) {
+    try {
+      await addToOutbox({
+        id: itemId,
+        stageId: stageId!,
+        name: file.name,
+        type: file.type,
+        blob: file,
+      });
+      updateItem(itemId, { status: "queued" });
+      // Brief confirmation, then the global outbox pill takes over.
+      setTimeout(() => removeItem(itemId), 2500);
+    } catch {
+      updateItem(itemId, {
+        status: "error",
+        error: "No connection, and saving for later failed.",
       });
     }
   }
@@ -300,10 +338,18 @@ export default function StagePhotoUploader({
                 </span>
               )}
               {/* Status overlay */}
-              {it.status !== "error" && (
+              {(it.status === "optimizing" || it.status === "uploading") && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] uppercase tracking-wide gap-1">
                   <Loader2 size={12} className="animate-spin" />
                   {it.status === "optimizing" ? "Optimizing" : "Uploading"}
+                </div>
+              )}
+              {it.status === "queued" && (
+                <div className="absolute inset-0 bg-amber-900/70 text-white p-1.5 text-[10px] flex flex-col items-center justify-center text-center gap-1">
+                  <CloudUpload size={14} />
+                  <span className="leading-tight">
+                    Saved — uploads when back online
+                  </span>
                 </div>
               )}
               {it.status === "error" && (
@@ -313,10 +359,22 @@ export default function StagePhotoUploader({
                 >
                   <AlertCircle size={14} />
                   <span className="leading-tight">{it.error ?? "Failed"}</span>
+                  {/* Catch-all: any failed PHOTO can be parked in the
+                      offline outbox instead of being lost — covers
+                      failures the network heuristic didn't classify. */}
+                  {it.kind === "image" && it.file && stageId && (
+                    <button
+                      type="button"
+                      onClick={() => void queueForLater(it.id, it.file!)}
+                      className="mt-1 text-[10px] font-semibold underline"
+                    >
+                      Save for later
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeItem(it.id)}
-                    className="mt-1 text-[10px] underline"
+                    className="mt-0.5 text-[10px] underline"
                   >
                     Dismiss
                   </button>

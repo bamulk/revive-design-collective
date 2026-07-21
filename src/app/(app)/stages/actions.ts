@@ -1297,17 +1297,28 @@ export async function deleteStageAction(id: string) {
 }
 
 /** Upload a single photo file to storage + insert its metadata row. Shared
- *  by the New Stage batch upload and the per-stage upload form. */
+ *  by the New Stage batch upload and the per-stage upload form.
+ *
+ *  `clientKey` (from the offline outbox / uploader) makes the storage
+ *  path deterministic so a RETRY of the same photo collides on upload
+ *  ("resource already exists") instead of silently inserting a
+ *  duplicate — flaky-connection re-sends and multi-tab drains then
+ *  fail loudly and get treated as already-delivered. */
 async function saveStagePhoto(
   stageId: string,
   file: File,
-  caption: string | null
+  caption: string | null,
+  clientKey?: string | null,
 ) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const path = `${stageId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const safeKey = (clientKey ?? "").replace(/[^a-zA-Z0-9-]/g, "");
+  const path = safeKey
+    ? `${stageId}/ob-${safeKey}-${safeName}`
+    : `${stageId}/${Date.now()}-${safeName}`;
   const { error: upErr } = await supabase.storage
     .from("stage-photos")
     .upload(path, file, { contentType: file.type, upsert: false });
@@ -1359,8 +1370,9 @@ export async function attachStageVideoAction(
 export async function uploadStagePhotoAction(stageId: string, formData: FormData) {
   const file = formData.get("file") as File | null;
   const caption = (formData.get("caption") as string) || null;
+  const clientKey = (formData.get("client_key") as string) || null;
   if (!file || file.size === 0) throw new Error("No file");
-  await saveStagePhoto(stageId, file, caption);
+  await saveStagePhoto(stageId, file, caption, clientKey);
   const supabase = await createClient();
   await logActivity(supabase, {
     kind: "photo_added",

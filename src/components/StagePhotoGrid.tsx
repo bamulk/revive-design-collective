@@ -119,6 +119,7 @@ export default function StagePhotoGrid({
                 {p.kind === "video" ? (
                   <div className="relative">
                     <video
+              crossOrigin="anonymous"
                       src={p.thumbUrl}
                       muted
                       playsInline
@@ -135,6 +136,7 @@ export default function StagePhotoGrid({
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+              crossOrigin="anonymous"
                     src={p.thumbUrl}
                     alt=""
                     loading="lazy"

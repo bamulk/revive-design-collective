@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearOfflineData } from "@/lib/photo-outbox";
 
 export default function SignOutButton({
   redirectTo = "/login",
@@ -17,6 +18,10 @@ export default function SignOutButton({
   return (
     <button
       onClick={async () => {
+        // Wipe offline caches + the photo outbox FIRST — a shared
+        // device must not serve this user's cached pages offline or
+        // upload their queued photos under the next session.
+        await clearOfflineData();
         await supabase.auth.signOut();
         router.push(redirectTo);
         router.refresh();

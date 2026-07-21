@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
 import RouteLoader from "@/components/RouteLoader";
 import PullToRefresh from "@/components/PullToRefresh";
+import OfflineSupport from "@/components/OfflineSupport";
+import PhotoOutboxPill from "@/components/PhotoOutboxPill";
 import { TEAM_ROLES, canEstimate } from "@/lib/permissions";
 
 export default async function AppLayout({
@@ -38,6 +40,9 @@ export default async function AppLayout({
     <div className="min-h-screen flex flex-col">
       <RouteLoader />
       <PullToRefresh />
+      {/* Offline: SW registration + offline banner + photo outbox. */}
+      <OfflineSupport />
+      <PhotoOutboxPill />
       {/* vapidPublicKey is passed to every team member (stagers + lead
           stagers + admins) so they can all enable the push toggle;
           stagers receive crew-assignment alerts once they turn it on. */}

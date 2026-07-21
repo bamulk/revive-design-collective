@@ -302,6 +302,7 @@ export default function PhotoLightbox({ photos, children, onDelete }: Props) {
               image keeps the pinch/zoom/pan behavior. */}
           {photos[openIdx].kind === "video" ? (
             <video
+              crossOrigin="anonymous"
               key={photos[openIdx].id}
               src={photos[openIdx].url}
               controls
@@ -319,6 +320,7 @@ export default function PhotoLightbox({ photos, children, onDelete }: Props) {
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              crossOrigin="anonymous"
               src={photos[openIdx].url}
               alt=""
               onClick={onImgClick}

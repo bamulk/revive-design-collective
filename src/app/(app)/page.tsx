@@ -14,6 +14,7 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import { Card, PageHeader, LinkButton } from "@/components/ui";
 import TeamTag from "@/components/TeamTag";
 import TodayMap, { type TodayMapPin } from "@/components/TodayMap";
+import PrefetchTodayStages from "@/components/PrefetchTodayStages";
 import OutstandingSection from "./_OutstandingSection";
 import OutstandingExtensionsSection from "./_OutstandingExtensionsSection";
 import CurrentlyStagedSection from "./_CurrentlyStagedSection";
@@ -401,6 +402,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
+      {/* Warm the offline cache with today's work while there's signal —
+          crews can then open these pages from dead-zone houses. */}
+      <PrefetchTodayStages
+        paths={[
+          "/timeclock",
+          "/plan",
+          ...Array.from(
+            new Set(
+              [...todayDestages, ...todayStages].map((c) => `/stages/${c.id}`),
+            ),
+          ),
+        ]}
+      />
       <PageHeader
         title="Dashboard"
         subtitle={`${ytdCount} stage${ytdCount === 1 ? "" : "s"} YTD`}
@@ -628,6 +642,7 @@ function TodayCardItem({
           {item.photoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
+              crossOrigin="anonymous"
               src={item.photoUrl}
               alt=""
               loading="lazy"

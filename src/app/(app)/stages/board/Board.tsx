@@ -233,7 +233,7 @@ function Card({ stage, dragging = false }: { stage: BoardStage; dragging?: boole
     >
       {stage.thumb_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={stage.thumb_url} alt="" loading="lazy" className="w-full h-24 object-cover bg-slate-100 dark:bg-slate-800" />
+        <img crossOrigin="anonymous" src={stage.thumb_url} alt="" loading="lazy" className="w-full h-24 object-cover bg-slate-100 dark:bg-slate-800" />
       ) : (
         <div className="w-full h-24 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
           No photo

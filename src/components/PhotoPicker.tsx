@@ -125,7 +125,7 @@ export default function PhotoPicker({
               className="relative group rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="w-full h-24 object-cover" />
+              <img crossOrigin="anonymous" src={url} alt="" className="w-full h-24 object-cover" />
               <button
                 type="button"
                 onClick={() => remove(i)}
