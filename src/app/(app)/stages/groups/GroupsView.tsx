@@ -586,6 +586,14 @@ function StageCard({
                   <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
                     {stage.address}
                   </div>
+                  {(stage.city || stage.neighborhood) && (
+                    <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 truncate">
+                      <MapPin size={11} className="shrink-0" />
+                      {stage.neighborhood
+                        ? `${stage.neighborhood}${stage.city ? ` · ${stage.city}` : ""}`
+                        : stage.city}
+                    </div>
+                  )}
                   {stage.client_name && (
                     <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
                       {stage.client_name}
