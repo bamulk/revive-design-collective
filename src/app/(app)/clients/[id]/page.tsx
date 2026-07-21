@@ -6,6 +6,7 @@ import { updateClientAction, deleteClientAction } from "../actions";
 import PortalInviteButton from "@/components/PortalInviteButton";
 import ClientInfoForm from "@/components/ClientInfoForm";
 import ClientStagesCards from "@/components/ClientStagesCards";
+import { invoiceNumberFor } from "@/lib/invoice-pdf";
 import { requireTeamMember } from "@/lib/permissions";
 import { formatMDY } from "@/lib/time";
 
@@ -49,10 +50,20 @@ export default async function ClientDetailPage({
   const { data: stages } = await supabase
     .from("stages")
     .select(
-      "id, address, status, stage_date, destage_date, amount, paid_at, payment_method",
+      "id, address, status, stage_date, destage_date, amount, paid_at, payment_method, invoice_generated_at",
     )
     .eq("client_id", id)
     .order("created_at", { ascending: false });
+
+  // The invoice number is derived from the stage id + the date the
+  // invoice was generated (INV-YYMMDD-XXXXXX) — same string that's on
+  // the PDF. Only present once an invoice actually exists.
+  const stageCards = (stages ?? []).map((s: any) => ({
+    ...s,
+    invoice_number: s.invoice_generated_at
+      ? invoiceNumberFor(s.id, String(s.invoice_generated_at).slice(0, 10))
+      : null,
+  }));
 
   // 30-day extensions across this client's stages — same data the
   // client sees in their portal (date, amount, paid) plus the internal
@@ -140,7 +151,7 @@ export default async function ClientDetailPage({
             + New stage
           </Link>
         </div>
-        <ClientStagesCards stages={(stages ?? []) as any} />
+        <ClientStagesCards stages={stageCards as any} />
       </section>
 
       {/* 30-day extensions across this client's stages. Clients see

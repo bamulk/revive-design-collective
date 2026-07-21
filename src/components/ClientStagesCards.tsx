@@ -14,6 +14,9 @@ export type ClientStage = {
   amount: number | null;
   paid_at: string | null;
   payment_method: string | null;
+  /** Derived invoice number (INV-YYMMDD-XXXXXX); null until an invoice
+   *  has been generated for the stage. */
+  invoice_number?: string | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -106,8 +109,15 @@ export default function ClientStagesCards({
                 className="block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="font-medium text-slate-900 dark:text-slate-100 min-w-0 truncate">
-                    {s.address}
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                      {s.address}
+                    </div>
+                    {s.invoice_number && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
+                        {s.invoice_number}
+                      </div>
+                    )}
                   </div>
                   <span
                     className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset capitalize ${
