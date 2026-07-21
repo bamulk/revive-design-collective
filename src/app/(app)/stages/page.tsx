@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import StagesListView, { type StageRow } from "./StagesListView";
+import ScrollMemory from "@/components/ScrollMemory";
 
 /**
  * Flat searchable + filterable list of every stage. Cousin page to
@@ -80,6 +81,7 @@ export default async function StagesPage() {
         }
       />
 
+      <ScrollMemory id="stages-list" />
       <StagesListView stages={stages} isAdmin={isAdmin} />
     </div>
   );

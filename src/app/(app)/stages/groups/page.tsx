@@ -6,6 +6,7 @@ import { getBarnCoords, haversineMiles } from "@/lib/distance";
 import GroupsView, { type GroupStage } from "./GroupsView";
 import { THUMB } from "@/lib/photo-urls";
 import { signThumbsCached } from "@/lib/sign-thumbs";
+import ScrollMemory from "@/components/ScrollMemory";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +153,7 @@ export default async function StagesGroupsPage() {
           </>
         }
       />
+      <ScrollMemory id="stages-groups" />
       <GroupsView stages={cards} isAdmin={isAdmin} />
     </div>
   );

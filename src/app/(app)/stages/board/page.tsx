@@ -5,6 +5,7 @@ import Board, { type BoardStage } from "./Board";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { THUMB } from "@/lib/photo-urls";
 import { signThumbsCached } from "@/lib/sign-thumbs";
+import ScrollMemory from "@/components/ScrollMemory";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,7 @@ export default async function StagesBoardPage() {
           </>
         }
       />
+      <ScrollMemory id="stages-board" />
       <Board initialStages={cards} />
     </div>
   );
