@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useKeyboardOpen } from "@/lib/use-keyboard-open";
 import {
   LayoutDashboard,
   Users,
@@ -186,6 +187,10 @@ export default function NavBar({
   const primary = items.slice(0, PRIMARY_COUNT);
   const overflow = items.slice(PRIMARY_COUNT);
   const overflowActive = overflow.some((n) => n.match(pathname));
+  // iOS strands fixed-bottom elements mid-screen when the keyboard
+  // opens (it ignores interactive-widget) — hide the tab bar while a
+  // text field is focused; the hook re-anchors it on close.
+  const keyboardOpen = useKeyboardOpen();
 
   return (
     <>
@@ -272,7 +277,9 @@ export default function NavBar({
           the bottom with rounded top corners. paddingBottom = just the
           home-indicator safe area. */}
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-[1100] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 rounded-t-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] [-webkit-tap-highlight-color:transparent]"
+        className={`md:hidden fixed bottom-0 inset-x-0 z-[1100] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 rounded-t-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] [-webkit-tap-highlight-color:transparent] ${
+          keyboardOpen ? "hidden" : ""
+        }`}
         style={{
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}

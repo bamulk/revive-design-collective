@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CloudUpload, Loader2 } from "lucide-react";
 import { uploadStagePhotoAction } from "@/app/(app)/stages/actions";
+import { useKeyboardOpen } from "@/lib/use-keyboard-open";
 import {
   OUTBOX_EVENT,
   bumpAttempts,
@@ -40,6 +41,9 @@ export default function PhotoOutboxPill() {
   const [failed, setFailed] = useState(0);
   const [draining, setDraining] = useState(false);
   const drainingRef = useRef(false);
+  // Fixed-bottom element — hide while the iOS keyboard is open (same
+  // stranded-mid-screen problem as the tab bar).
+  const keyboardOpen = useKeyboardOpen();
 
   const refreshCounts = useCallback(async () => {
     try {
@@ -131,7 +135,7 @@ export default function PhotoOutboxPill() {
   }, [drain, refreshCounts]);
 
   const total = pending + failed;
-  if (total === 0) return null;
+  if (total === 0 || keyboardOpen) return null;
 
   const retryFailed = () => {
     void (async () => {
