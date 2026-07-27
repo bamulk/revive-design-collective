@@ -1,6 +1,5 @@
 "use server";
 
-import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
@@ -192,27 +191,24 @@ export async function createEstimateAction(formData: FormData) {
     .single();
   if (error) throw new Error(error.message);
 
-  // Auto-send the branded estimate email via Resend in the background
-  // (post-response, so the redirect isn't held up by SMTP). Silently
-  // no-ops when the client has no email on file. Errors are logged
-  // server-side; the admin can still resend manually from the estimate
-  // page.
+  // Auto-send the branded estimate email BEFORE redirecting, so the
+  // detail page lands showing the true "Sent" state. This used to run
+  // post-response via after(), which caused a double-send: the page
+  // rendered "Not sent" for the seconds the background send took,
+  // inviting a manual send on top of the automatic one (happened on
+  // 4924 Village Green — two emails 5s apart). Costs ~1s on creation.
+  // Failures are non-fatal: the page then shows "Not sent" honestly
+  // and the admin sends manually.
   const newStageId = data.id;
-  after(async () => {
-    try {
-      const admin = createAdminClient();
-      const res = await sendEstimateEmailFor(admin, newStageId);
-      if (!res.ok) {
-        console.warn(
-          "[createEstimateAction auto-send]",
-          newStageId,
-          res.error,
-        );
-      }
-    } catch (e) {
-      console.error("[createEstimateAction auto-send]", newStageId, e);
+  try {
+    const admin = createAdminClient();
+    const res = await sendEstimateEmailFor(admin, newStageId);
+    if (!res.ok) {
+      console.warn("[createEstimateAction auto-send]", newStageId, res.error);
     }
-  });
+  } catch (e) {
+    console.error("[createEstimateAction auto-send]", newStageId, e);
+  }
 
   revalidatePath("/estimates");
   redirect(`/estimates/${data.id}`);
@@ -369,7 +365,8 @@ export type SendEstimateEmailResult =
  *
  * Pass any Supabase client (user-bound or admin); auth is the caller's
  * responsibility. `sendEstimateEmailAction` wraps this with an admin
- * check; `createEstimateAction` calls it from `after()` post-response.
+ * check; `createEstimateAction` awaits it inline before redirecting so
+ * the detail page lands showing the true sent state.
  */
 async function sendEstimateEmailFor(
   supabase: SupabaseClient,

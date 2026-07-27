@@ -51,6 +51,22 @@ export default function EstimateShareLink({
   const router = useRouter();
 
   function sendEmailViaResend() {
+    // Guard against accidental duplicates — the estimate auto-sends on
+    // creation, so an already-sent one deserves an "are you sure".
+    if (
+      sentAt &&
+      !confirm(
+        `This estimate was already emailed on ${new Date(
+          sentAt,
+        ).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          timeZone: "America/Los_Angeles",
+        })}. Send it again?`,
+      )
+    ) {
+      return;
+    }
     setError(null);
     setSentToast(null);
     setBusy("send");
