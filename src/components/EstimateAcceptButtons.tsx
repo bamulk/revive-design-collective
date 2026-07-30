@@ -16,7 +16,7 @@ export default function EstimateAcceptButtons({ token }: { token: string }) {
   function onAccept() {
     if (
       !confirm(
-        "Accept this estimate? We'll start scheduling your staging right away."
+        "Accept this estimate? We'll email you the staging agreement to sign next — your stage is confirmed once it's signed."
       )
     )
       return;

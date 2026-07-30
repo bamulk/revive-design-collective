@@ -202,15 +202,26 @@ export default async function EstimateAcceptPage({
           {/* Action buttons or settled message */}
           {settled ? (
             <div className="border-t border-slate-100 dark:border-slate-800 pt-4 text-sm text-slate-600 dark:text-slate-400">
-              {isAccepted
-                ? "Thanks — we've received your acceptance and will be in touch shortly."
-                : "We've recorded your decline. Reach out if anything changes."}
+              {isAccepted ? (
+                <>
+                  Thanks — we&rsquo;ve received your acceptance.{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">
+                    Next step: check your email for the staging agreement to
+                    sign.
+                  </strong>{" "}
+                  Your stage isn&rsquo;t confirmed until the agreement is
+                  signed.
+                </>
+              ) : (
+                "We've recorded your decline. Reach out if anything changes."
+              )}
             </div>
           ) : (
             <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
               <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 Please review the estimate above and let us know whether to
-                proceed.
+                proceed. After you accept, we&rsquo;ll email you the staging
+                agreement to sign.
               </p>
               <EstimateAcceptButtons token={token} />
             </div>
