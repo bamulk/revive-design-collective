@@ -118,10 +118,29 @@ Thanks for choosing Revive Design Collective!`;
     !COMPANY_CC || opts.clientEmail.toLowerCase() === COMPANY_CC
       ? undefined
       : COMPANY_CC;
+  // BCC every admin, matching the invoice/estimate email pipelines.
+  let bcc: string[] = [];
+  try {
+    const admin = createAdminClient();
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("role", "admin");
+    bcc = (admins ?? [])
+      .map((a: any) => a.email as string | null)
+      .filter(
+        (e): e is string =>
+          !!e && e !== opts.clientEmail && e.toLowerCase() !== COMPANY_CC,
+      )
+      .slice(0, 50);
+  } catch {
+    // BCC is best-effort — never block the client's confirmation.
+  }
   try {
     await sendEmail({
       to: opts.clientEmail,
       cc,
+      ...(bcc.length > 0 ? { bcc } : {}),
       subject,
       text,
       html,

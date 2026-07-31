@@ -57,6 +57,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  // BCC every admin on the renewal offers so the office always sees
+  // exactly what went out to whom (same pattern as invoice/estimate
+  // emails).
+  const { data: admins } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("role", "admin");
+  const adminEmails = (admins ?? [])
+    .map((a: any) => a.email as string | null)
+    .filter((e): e is string => !!e)
+    .slice(0, 50);
+
   let sent = 0;
   let skipped = 0;
   let failed = 0;
@@ -116,8 +128,15 @@ ${link}
   <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
 </body></html>`;
 
+    const bcc = adminEmails.filter((e) => e !== clientEmail);
     try {
-      await sendEmail({ to: clientEmail, subject, text, html });
+      await sendEmail({
+        to: clientEmail,
+        ...(bcc.length > 0 ? { bcc } : {}),
+        subject,
+        text,
+        html,
+      });
       await supabase
         .from("stages")
         .update({ extension_email_sent_at: new Date().toISOString() })
