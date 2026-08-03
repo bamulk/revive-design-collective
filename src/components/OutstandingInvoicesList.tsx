@@ -19,6 +19,9 @@ export type OutstandingRow = {
   client_name: string | null;
   client_email: string | null;
   invoice_sent_at: string | null;
+  /** Derived invoice number (INV-YYMMDD-XXXXXX); null until an invoice
+   *  has been generated. */
+  invoice_number: string | null;
 };
 
 type SortKey =
@@ -72,7 +75,8 @@ export default function OutstandingInvoicesList({
     if (q) {
       const tokens = q.split(/\s+/);
       list = list.filter((r) => {
-        const hay = `${r.address} ${r.client_name ?? ""}`.toLowerCase();
+        const hay =
+          `${r.address} ${r.client_name ?? ""} ${r.invoice_number ?? ""}`.toLowerCase();
         return tokens.every((t) => hay.includes(t));
       });
     }
@@ -177,6 +181,11 @@ export default function OutstandingInvoicesList({
                   <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
                     {s.address}
                   </div>
+                  {s.invoice_number && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
+                      {s.invoice_number}
+                    </div>
+                  )}
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     ${s.amount.toFixed(2)} · {s.status} · stage{" "}
                     {formatMDY(s.stage_date)}
@@ -239,6 +248,11 @@ export default function OutstandingInvoicesList({
                         >
                           {s.address}
                         </Link>
+                        {s.invoice_number && (
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                            {s.invoice_number}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-300">
                         {s.client_id ? (

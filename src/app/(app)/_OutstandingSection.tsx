@@ -3,6 +3,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import OutstandingInvoicesList, {
   type OutstandingRow,
 } from "@/components/OutstandingInvoicesList";
+import { invoiceNumberFor } from "@/lib/invoice-pdf";
 
 /**
  * Outstanding invoices block on the dashboard. Extracted into its own
@@ -20,7 +21,7 @@ export default async function OutstandingSection() {
   const { data: unpaidList } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, status, invoice_sent_at, clients(id, name, email)",
+      "id, address, amount, stage_date, destage_date, status, invoice_sent_at, invoice_generated_at, clients(id, name, email)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -60,6 +61,14 @@ export default async function OutstandingSection() {
               client_name: s.clients?.name ?? null,
               client_email: s.clients?.email ?? null,
               invoice_sent_at: s.invoice_sent_at ?? null,
+              // Same derived number that's printed on the invoice PDF;
+              // null until an invoice has been generated.
+              invoice_number: s.invoice_generated_at
+                ? invoiceNumberFor(
+                    s.id,
+                    String(s.invoice_generated_at).slice(0, 10),
+                  )
+                : null,
             }),
           )}
         />
