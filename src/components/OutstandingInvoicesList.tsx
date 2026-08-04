@@ -22,7 +22,27 @@ export type OutstandingRow = {
   /** Derived invoice number (INV-YYMMDD-XXXXXX); null until an invoice
    *  has been generated. */
   invoice_number: string | null;
+  /** Automated payment reminders sent so far (0 = none yet). */
+  reminder_count: number;
+  reminder_last_at: string | null;
 };
+
+/** "Reminded ×2 · 7/30" once the cron has nudged this invoice. */
+function ReminderTrail({
+  count,
+  lastAt,
+}: {
+  count: number;
+  lastAt: string | null;
+}) {
+  if (count <= 0) return null;
+  return (
+    <div className="text-[11px] text-amber-700 dark:text-amber-400">
+      Reminded ×{count}
+      {lastAt ? ` · ${formatMDY(lastAt.slice(0, 10))}` : ""}
+    </div>
+  );
+}
 
 type SortKey =
   | "stage_date_asc"
@@ -190,6 +210,10 @@ export default function OutstandingInvoicesList({
                     ${s.amount.toFixed(2)} · {s.status} · stage{" "}
                     {formatMDY(s.stage_date)}
                   </div>
+                  <ReminderTrail
+                    count={s.reminder_count}
+                    lastAt={s.reminder_last_at}
+                  />
                 </Link>
                 {/* Client on its own line (a link can't nest inside the
                     stage link above) — tapping it opens the client page. */}
@@ -253,6 +277,10 @@ export default function OutstandingInvoicesList({
                             {s.invoice_number}
                           </div>
                         )}
+                        <ReminderTrail
+                          count={s.reminder_count}
+                          lastAt={s.reminder_last_at}
+                        />
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-300">
                         {s.client_id ? (

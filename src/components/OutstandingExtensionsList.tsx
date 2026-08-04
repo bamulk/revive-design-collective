@@ -15,7 +15,27 @@ export type OutstandingExtensionRow = {
   client_name: string | null;
   extension_date: string | null;
   amount: number;
+  /** Automated payment reminders sent so far (0 = none yet). */
+  reminder_count: number;
+  reminder_last_at: string | null;
 };
+
+/** "Reminded ×2 · 7/30" once the cron has nudged this extension. */
+function ReminderTrail({
+  count,
+  lastAt,
+}: {
+  count: number;
+  lastAt: string | null;
+}) {
+  if (count <= 0) return null;
+  return (
+    <div className="text-[11px] text-amber-700 dark:text-amber-400">
+      Reminded ×{count}
+      {lastAt ? ` · ${formatMDY(lastAt.slice(0, 10))}` : ""}
+    </div>
+  );
+}
 
 type SortKey = "date_asc" | "date_desc" | "amount_desc" | "amount_asc" | "address";
 
@@ -141,6 +161,10 @@ export default function OutstandingExtensionsList({
                     ${x.amount.toFixed(2)} · extension{" "}
                     {formatMDY(x.extension_date)}
                   </div>
+                  <ReminderTrail
+                    count={x.reminder_count}
+                    lastAt={x.reminder_last_at}
+                  />
                 </Link>
                 <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
                   {x.client_id ? (
@@ -190,6 +214,10 @@ export default function OutstandingExtensionsList({
                         >
                           {x.address}
                         </Link>
+                        <ReminderTrail
+                          count={x.reminder_count}
+                          lastAt={x.reminder_last_at}
+                        />
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-300">
                         {x.client_id ? (
