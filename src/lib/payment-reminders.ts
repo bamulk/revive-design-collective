@@ -22,7 +22,8 @@
  * Fail-closed: any query error aborts the pass — better to send
  * nothing than to email a wrong balance. Every send stamps
  * *_reminder_last_at/count per item (checked!), so the daily cron
- * can't double-send. Admins are BCC'd on each digest for visibility.
+ * can't double-send. No admin BCC (owner's call) — admin visibility
+ * is the "Reminded ×N" trail on the dashboard's Outstanding sections.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
@@ -193,21 +194,6 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const admin = createAdminClient();
   const now = Date.now();
 
-  // Admin BCC list. Fail closed — reminders without admin visibility
-  // shouldn't go out.
-  const { data: admins, error: adminsErr } = await admin
-    .from("profiles")
-    .select("email")
-    .eq("role", "admin");
-  if (adminsErr) {
-    result.aborted = `admins query failed: ${adminsErr.message}`;
-    return result;
-  }
-  const adminEmails = (admins ?? [])
-    .map((a: any) => a.email as string | null)
-    .filter((e): e is string => !!e)
-    .slice(0, 50);
-
   // ---- Collect due stage invoices -------------------------------------
   // The unpaid backlog is business-bounded (dozens), so no pagination.
   // NOTE: no pdf filter here — PDF-less rows are counted so the cron
@@ -373,12 +359,10 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
           .filter((e): e is string => !!e && e !== g.email.toLowerCase()),
       ),
     );
-    const bcc = adminEmails.filter((e) => e !== g.email);
     try {
       await sendEmail({
         to: g.email,
         ...(cc.length > 0 ? { cc } : {}),
-        ...(bcc.length > 0 ? { bcc } : {}),
         subject,
         text,
         html,
