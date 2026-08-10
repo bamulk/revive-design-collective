@@ -9,9 +9,10 @@ import { runPaymentReminderCheck } from "@/lib/payment-reminders";
  * 1. Photo nag: push admins about scheduled stages 3 days out that
  *    have zero photos uploaded.
  * 2. Payment reminders: email clients whose stage/extension invoices
- *    are unpaid — one digest per client; first nudge ~5 days after the
- *    invoice email, then every 3 days (see src/lib/payment-reminders.ts
- *    for the skip rules and safety valves).
+ *    are unpaid — one email per (client, secondary recipient) pair so a
+ *    CC'd party never sees another transaction's invoice; first nudge
+ *    ~5 days after the invoice email, then every 3 days (see
+ *    src/lib/payment-reminders.ts for the skip rules and safety valves).
  *
  * Each pass runs in its own try/catch so a failure in one never
  * silently cancels the other.

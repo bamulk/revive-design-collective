@@ -7,9 +7,13 @@
  * (Timing checks allow 12h of slack so a daily cron never drifts a
  * reminder from day 3 to day 4.)
  *
- * ONE DIGEST EMAIL PER CLIENT PER RUN: a client with several open
- * invoices gets a single email listing all of them — never a stack of
- * near-identical messages.
+ * ONE DIGEST EMAIL PER (CLIENT, SECONDARY-RECIPIENT) PER RUN: open
+ * invoices that share the same parties are combined into one email.
+ * Secondary recipients are per-stage, so an invoice with a different
+ * secondary goes in its OWN email CC'd only to that address — a CC'd
+ * party must never see another transaction's invoice (this leaked
+ * across two clients' digests on 2026-08-09/10 when grouping was
+ * purely per-client).
  *
  * Skipped when:
  *   - the client's payment_reminders checkbox is off (escrow payers)
@@ -33,8 +37,10 @@ const REPEAT_REMINDER_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Slack so "3 days" measured by a daily cron doesn't slip to 4. */
 const TOLERANCE_MS = 12 * 60 * 60 * 1000;
-/** Safety valve: max client digests per run (oldest-due first). */
-const MAX_CLIENT_EMAILS_PER_RUN = 25;
+/** Safety valve: max reminder EMAILS per run (oldest-due first). A
+ *  client whose invoices span several secondary recipients sends
+ *  several emails, so this caps sends, not distinct clients. */
+const MAX_EMAILS_PER_RUN = 25;
 /** Stop nagging after this many reminders per invoice (owner's call:
  *  ~2.5 weeks of nudges, then it's back in human hands — the dashboard
  *  Outstanding lists still show it). */
@@ -108,15 +114,20 @@ function digestEmail(opts: {
   const { greeting, items } = opts;
   const total = items.reduce((s, i) => s + i.balance, 0);
   const totalStr = `$${total.toFixed(2)}`;
+  // Anchor multi-item subjects to an address and scope the intro to
+  // "the invoices below": a client can now receive several emails in
+  // one run (one per secondary recipient), so the copy must never
+  // claim to be their account-wide total, and two same-day emails
+  // must not share an identical subject (they'd thread in Gmail).
   const subject =
     items.length === 1
       ? `Payment reminder: ${items[0].label.toLowerCase()} for ${items[0].address} — Stone Home Staging`
-      : `Payment reminder: ${items.length} open invoices — Stone Home Staging`;
+      : `Payment reminder: ${items[0].address} + ${items.length - 1} more — Stone Home Staging`;
 
   const intro =
     items.length === 1
       ? `Just a friendly reminder that the ${items[0].label.toLowerCase()} for ${items[0].address} has an outstanding balance of $${items[0].balance.toFixed(2)}.`
-      : `Just a friendly reminder that you have ${items.length} open invoices with us, with a combined balance of ${totalStr}.`;
+      : `Just a friendly reminder that the ${items.length} invoices below have a combined balance of ${totalStr}.`;
 
   const textItems = items
     .map((i) => {
@@ -171,7 +182,9 @@ function digestEmail(opts: {
 }
 
 export type PaymentReminderResult = {
-  clientsEmailed: number;
+  /** Reminder emails sent this run — one per (client, secondary) group,
+   *  so this can exceed the number of distinct clients reached. */
+  emailsSent: number;
   invoiceItems: number;
   extensionItems: number;
   skippedNoPdf: number;
@@ -181,7 +194,7 @@ export type PaymentReminderResult = {
 
 export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> {
   const result: PaymentReminderResult = {
-    clientsEmailed: 0,
+    emailsSent: 0,
     invoiceItems: 0,
     extensionItems: 0,
     skippedNoPdf: 0,
@@ -255,7 +268,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: exts, error: extsErr } = await admin
     .from("stage_extensions")
     .select(
-      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, escrow, client:clients(name, email, payment_reminders))",
+      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, escrow, secondary_recipient_email, client:clients(name, email, payment_reminders))",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -266,16 +279,28 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     return result;
   }
 
-  // ---- Group everything due into one digest per client email ----------
+  // ---- Group everything due into digests -------------------------------
+  // Key = client email + secondary CC. Items with no secondary share the
+  // client-only digest; each distinct secondary gets its own email so a
+  // CC'd party only ever sees the transaction they're on.
   type Group = {
     clientName: string | null;
     email: string;
+    /** The one secondary CC shared by every item in this group, if any. */
+    ccEmail: string | null;
     items: DueItem[];
   };
   const groups = new Map<string, Group>();
   function addItem(email: string, clientName: string | null, item: DueItem) {
-    const key = email.toLowerCase();
-    const g = groups.get(key) ?? { clientName, email, items: [] };
+    // clients.email is stored verbatim from the form and can carry stray
+    // whitespace — normalize before comparing/keying, or a secondary
+    // equal to the client's own address would split into its own digest.
+    const addr = email.trim();
+    const cc =
+      item.ccEmail && item.ccEmail !== addr.toLowerCase() ? item.ccEmail : null;
+    const key = `${addr.toLowerCase()}|${cc ?? ""}`;
+    const g =
+      groups.get(key) ?? { clientName, email: addr, ccEmail: cc, items: [] };
     g.items.push(item);
     groups.set(key, g);
   }
@@ -335,7 +360,14 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
       payLink: null,
       onlineTotal: null,
       dueSince: new Date(x.reminder_last_at ?? x.pdf_sent_at).getTime(),
-      ccEmail: null,
+      // Inherit the stage's secondary recipient so a stage invoice and
+      // its extension (same transaction, same parties) share one email
+      // instead of splitting into a CC'd email and a client-only one.
+      ccEmail:
+        typeof stage.secondary_recipient_email === "string" &&
+        stage.secondary_recipient_email.trim()
+          ? stage.secondary_recipient_email.trim().toLowerCase()
+          : null,
       reminderCount: Number(x.reminder_count ?? 0),
     });
   }
@@ -346,19 +378,13 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
       Math.min(...a.items.map((i) => i.dueSince)) -
       Math.min(...b.items.map((i) => i.dueSince)),
   );
-  const toSend = ordered.slice(0, MAX_CLIENT_EMAILS_PER_RUN);
+  const toSend = ordered.slice(0, MAX_EMAILS_PER_RUN);
 
   const nowIso = () => new Date().toISOString();
   for (const g of toSend) {
     const greeting = (g.clientName ?? "").split(/\s+/)[0] || "there";
     const { subject, text, html } = digestEmail({ greeting, items: g.items });
-    const cc = Array.from(
-      new Set(
-        g.items
-          .map((i) => i.ccEmail)
-          .filter((e): e is string => !!e && e !== g.email.toLowerCase()),
-      ),
-    );
+    const cc = g.ccEmail ? [g.ccEmail] : [];
     try {
       await sendEmail({
         to: g.email,
@@ -407,13 +433,13 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
         result.extensionItems += 1;
       }
     }
-    result.clientsEmailed += 1;
+    result.emailsSent += 1;
     await sleep(SEND_GAP_MS);
   }
 
   if (ordered.length > toSend.length) {
     console.warn(
-      `[payment-reminders] capped: ${ordered.length - toSend.length} client digest(s) deferred to the next run`,
+      `[payment-reminders] capped: ${ordered.length - toSend.length} reminder email(s) deferred to the next run`,
     );
   }
   return result;

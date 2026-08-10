@@ -42,7 +42,7 @@ export async function createClientAction(formData: FormData) {
   const supabase = await createClient();
   const payload = {
     name: String(formData.get("name") || "").trim(),
-    email: (formData.get("email") as string) || null,
+    email: String(formData.get("email") || "").trim() || null,
     phone: (formData.get("phone") as string) || null,
     address: (formData.get("address") as string) || null,
     notes: (formData.get("notes") as string) || null,
@@ -58,7 +58,7 @@ export async function updateClientAction(id: string, formData: FormData) {
   const supabase = await createClient();
   const payload = {
     name: String(formData.get("name") || "").trim(),
-    email: (formData.get("email") as string) || null,
+    email: String(formData.get("email") || "").trim() || null,
     phone: (formData.get("phone") as string) || null,
     address: (formData.get("address") as string) || null,
     notes: (formData.get("notes") as string) || null,
