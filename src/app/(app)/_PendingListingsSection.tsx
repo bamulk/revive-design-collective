@@ -19,7 +19,7 @@ export default async function PendingListingsSection() {
   const { data: rows } = await supabase
     .from("stages")
     .select(
-      "id, address, city, stage_date, destage_date, listing_status, listing_status_checked_at, zillow_url, clients(name)",
+      "id, address, city, stage_date, destage_date, listing_status, listing_status_checked_at, listing_pending_notified_at, zillow_url, clients(name)",
     )
     .eq("status", "staged")
     .or(
@@ -94,6 +94,14 @@ export default async function PendingListingsSection() {
                 </span>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600 dark:text-slate-400 tabular-nums">
+                {s.listing_pending_notified_at && (
+                  <span
+                    className="font-medium text-rose-700 dark:text-rose-400"
+                    title="First seen pending on the daily Zillow check"
+                  >
+                    Went pending {formatMDY(s.listing_pending_notified_at)}
+                  </span>
+                )}
                 <span>Staged {formatMDY(s.stage_date)}</span>
                 {s.destage_date && (
                   <span>Destage {formatMDY(s.destage_date)}</span>
