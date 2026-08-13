@@ -30,7 +30,7 @@ export default function BoaCsvImport() {
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
-        Paste CSV
+        Paste transactions (comma or tab delimited)
       </label>
       <textarea
         value={csv}
@@ -63,7 +63,33 @@ export default function BoaCsvImport() {
         </button>
       </div>
 
-      {result?.ok && (
+      {/* All-unparseable paste: a plain success box would read as "it
+          worked" — call out that nothing was read and what's expected. */}
+      {result?.ok &&
+        result.inserted === 0 &&
+        result.duplicates === 0 &&
+        result.creditsSkipped === 0 &&
+        result.unparseableSkipped > 0 && (
+          <div className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 space-y-1">
+            <div className="font-medium">
+              Nothing imported — none of the {result.unparseableSkipped} pasted
+              row{result.unparseableSkipped === 1 ? "" : "s"} could be read.
+            </div>
+            <div className="text-xs">
+              Both BoA download formats work (comma or tab delimited), as do
+              rows copied straight off the Activity page. Make sure the paste
+              includes the transaction rows themselves (date / description /
+              amount), not just the summary block.
+            </div>
+          </div>
+        )}
+      {result?.ok &&
+        !(
+          result.inserted === 0 &&
+          result.duplicates === 0 &&
+          result.creditsSkipped === 0 &&
+          result.unparseableSkipped > 0
+        ) && (
         <div className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 space-y-1">
           <div className="inline-flex items-center gap-1.5 font-medium">
             <Check size={14} /> Imported {result.inserted} expense

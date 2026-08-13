@@ -33,6 +33,9 @@ export type ParseResult = {
   skipped: { credits: number; unparseable: number };
 };
 
+// Per-LINE detection: tabs never legitimately appear in a comma CSV,
+// but a paste can mix shapes (comma header + tab rows copied off the
+// page), so each line picks its own delimiter.
 function detectDelimiter(line: string): "\t" | "," {
   if (line.includes("\t")) return "\t";
   return ",";
@@ -62,8 +65,8 @@ function splitCommaLine(line: string): string[] {
   return out.map((s) => s.trim());
 }
 
-function splitLine(line: string, delim: "\t" | ","): string[] {
-  if (delim === "\t") {
+function splitLine(line: string): string[] {
+  if (detectDelimiter(line) === "\t") {
     // Tabs aren't quoted, so a plain split is fine — but strip quotes
     // that some clipboards add around individual cells.
     return line.split("\t").map((s) => s.trim().replace(/^"|"$/g, ""));
@@ -78,9 +81,14 @@ function parseAmount(raw: string): number | null {
   const cleaned = raw
     .replace(/["'$\s,]/g, "")
     .replace(/[−–—]/g, "-");
-  if (cleaned === "" || cleaned === "-") return null;
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
+  // Accounting-style negatives — "(63.69)" — appear when the download
+  // was opened in Excel/Numbers and copied back out.
+  const paren = cleaned.match(/^\((.+)\)$/);
+  const body = paren ? paren[1] : cleaned;
+  if (body === "" || body === "-") return null;
+  const n = Number(body);
+  if (!Number.isFinite(n)) return null;
+  return paren ? -Math.abs(n) : n;
 }
 
 function parseDate(raw: string): string | null {
@@ -149,12 +157,10 @@ export function parseBankOfAmericaCsv(csv: string): ParseResult {
     return { rows: [], skipped: { credits: 0, unparseable: 0 } };
   }
 
-  const delim = detectDelimiter(rawLines[0]);
-
   // Try to find a header in the first few rows.
   let headerIdx = -1;
   for (let i = 0; i < Math.min(rawLines.length, 20); i++) {
-    const cells = splitLine(rawLines[i], delim).map((c) => c.toLowerCase());
+    const cells = splitLine(rawLines[i]).map((c) => c.toLowerCase());
     if (
       cells.some((c) => c.includes("date")) &&
       cells.some((c) => c.includes("amount"))
@@ -166,8 +172,8 @@ export function parseBankOfAmericaCsv(csv: string): ParseResult {
 
   const hasHeader = headerIdx >= 0;
   const cols = hasHeader
-    ? inferColumns(splitLine(rawLines[headerIdx], delim), true)
-    : inferColumns(splitLine(rawLines[0], delim), false);
+    ? inferColumns(splitLine(rawLines[headerIdx]), true)
+    : inferColumns(splitLine(rawLines[0]), false);
   if (!cols) {
     return {
       rows: [],
@@ -181,7 +187,7 @@ export function parseBankOfAmericaCsv(csv: string): ParseResult {
   let unparseable = 0;
 
   for (let i = startIdx; i < rawLines.length; i++) {
-    const cells = splitLine(rawLines[i], delim);
+    const cells = splitLine(rawLines[i]);
     if (cells.length < 2) {
       unparseable++;
       continue;

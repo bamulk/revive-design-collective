@@ -11,25 +11,26 @@ export default async function BoaImportPage() {
         ← Finance
       </Link>
       <PageHeader
-        title="Import Bank of America CSV"
-        subtitle="Paste your downloaded Activity CSV — we'll parse, dedupe, and save the outflows"
+        title="Import Bank of America activity"
+        subtitle="Paste your Activity export — either download format works — and we'll parse, dedupe, and save the outflows"
       />
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 space-y-2">
         <p className="font-medium">How to get the data from BoA</p>
         <ol className="list-decimal list-inside space-y-1 text-blue-900/90">
           <li>Sign in to bankofamerica.com</li>
           <li>
-            Open your account → <em>Activity</em> tab. Either:
-            <ul className="list-disc list-inside ml-5 mt-1">
-              <li>
-                Click <em>Download</em> → <em>Comma Delimited (CSV)</em>,
-                open the file in TextEdit/Notepad, then paste; or
-              </li>
-              <li>
-                Just select the transactions on screen and copy
-                (Cmd/Ctrl + C) — pasted tab-separated rows work too
-              </li>
-            </ul>
+            Open your account → <em>Activity</em> tab
+          </li>
+          <li>
+            Click <em>Download</em> and pick either format —{" "}
+            <em>Comma Delimited (CSV)</em> and <em>Tab Delimited</em> both
+            import fine
+          </li>
+          <li>
+            Open the downloaded file in any app — TextEdit, Notepad, even
+            Excel or Numbers — select everything, and copy. (Or skip the
+            download entirely: select the transaction rows right on the
+            Activity page and copy them.)
           </li>
           <li>Paste below and hit Import</li>
         </ol>
