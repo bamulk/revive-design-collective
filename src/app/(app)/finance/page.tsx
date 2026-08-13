@@ -364,6 +364,10 @@ export default async function FinancePage() {
     arr[idx] += Number(e.amount ?? 0);
     categoryTrend.set(cat, arr);
   }
+  // Payroll-only monthly series (aligned to `months`) for the
+  // "Net per stage after payroll" card.
+  const payrollTrend: number[] =
+    categoryTrend.get("Payroll") ?? new Array(months.length).fill(0);
 
   // --- Year picker for the P&L export --------------------------------
   // Render the current year + every year we have data for, descending.
@@ -867,6 +871,82 @@ export default async function FinancePage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Net per stage after payroll — what each stage clears once the
+          crew is paid, month by month. Same revenue basis as the
+          monthly table above (billed by the month staged, paid or not)
+          but subtracting ONLY Payroll expenses instead of all spend. */}
+      <Card className="p-5 space-y-3">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <h2 className="text-base font-semibold tracking-tight">
+            Net per stage after payroll
+          </h2>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            (Stage income − payroll) ÷ stages, by month staged
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[520px]">
+            <thead>
+              <tr className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400 text-left">
+                <th className="py-2 font-medium">Month</th>
+                <th className="py-2 font-medium text-right">Stages</th>
+                <th
+                  className="py-2 font-medium text-right"
+                  title="Billed revenue for stages staged this month (paid or not)"
+                >
+                  Stage income
+                </th>
+                <th className="py-2 font-medium text-right">Payroll</th>
+                <th
+                  className="py-2 font-medium text-right"
+                  title="(Stage income − payroll) ÷ stages this month"
+                >
+                  Net / stage
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Newest first, matching the monthly table above. */}
+              {months
+                .map((m, idx) => ({ m, payroll: payrollTrend[idx] ?? 0 }))
+                .reverse()
+                .map(({ m, payroll }) => {
+                  const netPerStage =
+                    m.stages > 0 ? (m.billed - payroll) / m.stages : null;
+                  return (
+                    <tr
+                      key={m.key}
+                      className="border-t border-slate-100 dark:border-slate-800"
+                    >
+                      <td className="py-2 font-medium">{m.label}</td>
+                      <td className="py-2 text-right tabular-nums text-indigo-700 dark:text-indigo-300">
+                        {m.stages}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-emerald-700">
+                        {fmtMoney(m.billed)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-rose-700">
+                        {payroll > 0 ? fmtMoney(payroll) : "—"}
+                      </td>
+                      <td
+                        className={`py-2 text-right tabular-nums font-semibold ${
+                          netPerStage == null
+                            ? "text-slate-400 dark:text-slate-500"
+                            : netPerStage >= 0
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-rose-700"
+                        }`}
+                      >
+                        {netPerStage == null ? "—" : fmtMoney(netPerStage)}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
