@@ -1,9 +1,13 @@
 /**
  * Unpaid-invoice email reminders, run daily from /api/cron/reminders.
  *
- * Cadence (stage invoices and 30-day extension invoices alike):
- *   - first reminder 5 days after the invoice email went out
- *   - then every 3 days while it stays unpaid
+ * Cadence:
+ *   - stage invoices: payment is due ON STAGE DAY, so the clock starts
+ *     at the LATER of the invoice email and the stage date — first
+ *     reminder 5 days after that, then every 3 days while unpaid. An
+ *     invoice sent ahead of a future staging is never reminded early.
+ *   - extension invoices: first reminder 5 days after the invoice
+ *     email went out, then every 3 days (the house is already staged).
  * (Timing checks allow 12h of slack so a daily cron never drifts a
  * reminder from day 3 to day 4.)
  *
@@ -72,23 +76,35 @@ function clientOf(row: any): ClientRow | null {
   return (c as ClientRow) ?? null;
 }
 
-/** Is this invoice due for a reminder now? */
+/** Is this invoice due for a reminder now?
+ *
+ *  dueDate (stage day) floors the whole schedule: payment isn't due
+ *  until then, so no reminder — first OR repeat — can fire before
+ *  dueDate + FIRST_REMINDER_DAYS, even when a grace stamp or an old
+ *  premature reminder already set lastReminderAt. */
 function dueForReminder(
   sentAt: string | null,
+  dueDate: string | null,
   lastReminderAt: string | null,
   now: number,
 ): boolean {
   if (!sentAt) return false;
-  if (!lastReminderAt) {
-    return (
-      now - new Date(sentAt).getTime() >=
-      FIRST_REMINDER_DAYS * DAY_MS - TOLERANCE_MS
-    );
-  }
-  return (
-    now - new Date(lastReminderAt).getTime() >=
-    REPEAT_REMINDER_DAYS * DAY_MS - TOLERANCE_MS
+  // dueDate is a DATE string — new Date() parses it as UTC midnight,
+  // which is the prior EVENING in Pacific time; that plus the 12h
+  // tolerance would pull the first nag to day 4. Anchor at end of the
+  // due day (+1 day) so "5 days after stage day" lands on day 5.
+  const start = Math.max(
+    new Date(sentAt).getTime(),
+    dueDate ? new Date(dueDate).getTime() + DAY_MS : 0,
   );
+  const firstDue = start + FIRST_REMINDER_DAYS * DAY_MS;
+  const nextDue = lastReminderAt
+    ? Math.max(
+        new Date(lastReminderAt).getTime() + REPEAT_REMINDER_DAYS * DAY_MS,
+        firstDue,
+      )
+    : firstDue;
+  return now >= nextDue - TOLERANCE_MS;
 }
 
 /** One open item (stage invoice or extension invoice) in a digest. */
@@ -214,7 +230,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: stages, error: stagesErr } = await admin
     .from("stages")
     .select(
-      "id, address, amount, status, escrow, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, accept_online_payment, stripe_payment_link_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
+      "id, address, amount, status, escrow, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, accept_online_payment, stripe_payment_link_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -233,7 +249,12 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     if (Number(s.invoice_reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) {
       return false;
     }
-    return dueForReminder(s.invoice_sent_at, s.invoice_reminder_last_at, now);
+    return dueForReminder(
+      s.invoice_sent_at,
+      s.stage_date,
+      s.invoice_reminder_last_at,
+      now,
+    );
   });
   result.skippedNoPdf = eligibleStages.filter(
     (s: any) => !s.invoice_pdf_url,
@@ -349,7 +370,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     const c = clientOf(stage);
     if (!c?.email || c.payment_reminders === false) continue;
     if (Number(x.reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) continue;
-    if (!dueForReminder(x.pdf_sent_at, x.reminder_last_at, now)) continue;
+    if (!dueForReminder(x.pdf_sent_at, null, x.reminder_last_at, now)) continue;
     addItem(c.email, c.name, {
       kind: "extension",
       id: x.id,
