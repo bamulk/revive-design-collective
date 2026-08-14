@@ -11,10 +11,13 @@ export default async function StageExtensions({
   stageId,
   destageDate,
   stageAmount,
+  clientEmail,
 }: {
   stageId: string;
   destageDate: string | null;
   stageAmount: number;
+  /** For the per-row Send/Resend invoice button. */
+  clientEmail: string | null;
 }) {
   const supabase = await createClient();
   const { data: extensions } = await supabase
@@ -30,6 +33,7 @@ export default async function StageExtensions({
       stageId={stageId}
       destageDate={destageDate}
       stageAmount={stageAmount}
+      clientEmail={clientEmail}
       extensions={(extensions ?? []).map((e: any) => ({
         id: e.id,
         extension_date: e.extension_date ?? null,

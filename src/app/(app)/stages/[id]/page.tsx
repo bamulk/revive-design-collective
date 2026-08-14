@@ -759,6 +759,7 @@ export default async function StageDetailPage({
             stageId={id}
             destageDate={stage.destage_date ?? null}
             stageAmount={Number(stage.amount ?? 0)}
+            clientEmail={stage.clients?.email ?? null}
           />
         </Suspense>
       )}

@@ -17,6 +17,7 @@ import {
   deleteExtensionAction,
 } from "@/app/(app)/stages/actions";
 import ManualExtensionForm from "./ManualExtensionForm";
+import ResendExtensionButton from "./ResendExtensionButton";
 
 export type ExtensionRow = {
   id: string;
@@ -40,6 +41,8 @@ type Props = {
   destageDate: string | null;
   /** Stage amount, used to suggest a default for manual entries. */
   stageAmount: number;
+  /** For the per-row Send/Resend invoice button. */
+  clientEmail: string | null;
 };
 
 /**
@@ -53,6 +56,7 @@ export default function ExtensionSection({
   extensions,
   destageDate,
   stageAmount,
+  clientEmail,
 }: Props) {
   const total = extensions.reduce((s, e) => s + Number(e.amount || 0), 0);
   // Standard extension term is 30 days (matches the /x auto flow).
@@ -86,6 +90,7 @@ export default function ExtensionSection({
                 row={e}
                 stageId={stageId}
                 index={extensions.length - i}
+                clientEmail={clientEmail}
               />
             ))}
           </div>
@@ -130,10 +135,12 @@ function ExtensionRowCard({
   row,
   stageId,
   index,
+  clientEmail,
 }: {
   row: ExtensionRow;
   stageId: string;
   index: number;
+  clientEmail: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -290,6 +297,17 @@ function ExtensionRowCard({
             Delete
           </button>
         )}
+
+        {/* Send/Resend the extension invoice — same control as the
+            dashboard's Outstanding extensions rows. Sending stamps
+            pdf_sent_at, which arms the payment-reminder clock. */}
+        <span className="ml-auto">
+          <ResendExtensionButton
+            extensionId={row.id}
+            clientEmail={clientEmail}
+            pdfSentAt={row.pdf_sent_at}
+          />
+        </span>
       </div>
 
       {err && (
