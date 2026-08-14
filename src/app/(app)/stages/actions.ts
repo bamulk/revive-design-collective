@@ -25,6 +25,7 @@ import {
   type SelectedAddOn,
 } from "@/lib/pricing";
 import { requireAdmin } from "@/lib/require-admin";
+import { addDaysISO, formatMDY } from "@/lib/time";
 import { isTeamRole, requireTeamMember } from "@/lib/permissions";
 import { notifyStatusChange } from "@/lib/notify";
 import {
@@ -428,6 +429,61 @@ export async function resendSignatureForStageAction(
  * completion webhook regenerates and emails a corrected invoice for the
  * new amount instead of skipping (it skips when those are already set).
  */
+/**
+ * Switch a stage to the 90-day term. Sets destage_date to
+ * stage_date + 90 and stage_length_days to 90 (price unchanged), then
+ * rides sendNewAgreementForStageAction: the client gets a fresh
+ * agreement showing the 90-day term + new destage date, and when they
+ * sign it the webhook regenerates + emails a fresh invoice with the
+ * new dates at the same amount (the invoice gate is cleared, so the
+ * old PDF can't be re-delivered).
+ */
+export async function changeStageTo90DaysAction(
+  stageId: string,
+): Promise<
+  { ok: true; newDestage: string } | { ok: false; error: string }
+> {
+  try {
+    await requireAdmin();
+    const supabase = await createClient();
+    const { data: stage, error } = await supabase
+      .from("stages")
+      .select("id, stage_date, stage_length_days")
+      .eq("id", stageId)
+      .single();
+    if (error) throw new Error(error.message);
+    if (!stage?.stage_date) {
+      return {
+        ok: false,
+        error: "Set a stage date first — the 90-day term counts from it.",
+      };
+    }
+    if (Number(stage.stage_length_days) === 90) {
+      return { ok: false, error: "This stage is already on the 90-day term." };
+    }
+    const newDestage = addDaysISO(String(stage.stage_date), 90);
+    const { error: upErr } = await supabase
+      .from("stages")
+      .update({ stage_length_days: 90, destage_date: newDestage })
+      .eq("id", stageId);
+    if (upErr) throw new Error(upErr.message);
+
+    const sent = await sendNewAgreementForStageAction(stageId);
+    if (!sent.ok) {
+      // Term + destage already changed — say so honestly; the Signature
+      // card's "Send new agreement" retries the send half.
+      return {
+        ok: false,
+        error: `Term changed to 90 days (destage ${formatMDY(newDestage)}), but the new agreement failed to send: ${sent.error}. Use "Send new agreement" to retry.`,
+      };
+    }
+    revalidatePath("/");
+    return { ok: true, newDestage };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Change failed" };
+  }
+}
+
 export async function sendNewAgreementForStageAction(
   id: string,
 ): Promise<SignatureSendResult> {

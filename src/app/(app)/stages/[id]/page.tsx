@@ -16,6 +16,7 @@ import PackagePicker from "@/components/PackagePicker";
 import StagePhotos, { StagePhotosFallback } from "./_StagePhotos";
 import { StatusBadge } from "@/components/ui";
 import SignatureSendButton from "@/components/SignatureSendButton";
+import ChangeTo90Button from "@/components/ChangeTo90Button";
 import NewAgreementButton from "@/components/NewAgreementButton";
 import DeleteStageButton from "@/components/DeleteStageButton";
 import StageDateLink from "@/components/StageDateLink";
@@ -701,6 +702,14 @@ export default async function StageDetailPage({
               {/* Amount changed? Send a fresh agreement at the new
                   figure instead of re-delivering the stale envelope. */}
               <NewAgreementButton stageId={id} />
+              {/* Client wants the longer term: destage moves to
+                  stage_date + 90, new agreement + (once signed) a
+                  fresh invoice with the new dates. Price unchanged. */}
+              <ChangeTo90Button
+                stageId={id}
+                stageDate={stage.stage_date ?? null}
+                stageLengthDays={stage.stage_length_days ?? null}
+              />
             </div>
           </div>
         ) : (
@@ -709,6 +718,11 @@ export default async function StageDetailPage({
               No signature request has been sent yet.
             </p>
             <SignatureSendButton stageId={id} alreadySent={false} />
+            <ChangeTo90Button
+              stageId={id}
+              stageDate={stage.stage_date ?? null}
+              stageLengthDays={stage.stage_length_days ?? null}
+            />
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Requires SIGNATURE_API_KEY and a client email on file.
             </p>
