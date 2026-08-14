@@ -113,6 +113,7 @@ export default async function ClientDetailPage({
         updateAction={update}
         deleteAction={del}
         isAdmin={isAdmin}
+        stageCount={stages?.length ?? 0}
         defaults={{
           name: client.name,
           email: client.email ?? "",
