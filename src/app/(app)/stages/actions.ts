@@ -1493,6 +1493,71 @@ export async function updatePhotographerAtAction(
   return { ok: true };
 }
 
+export type BatchSendResult =
+  | {
+      ok: true;
+      sent: number;
+      failed: Array<{ address: string; error: string }>;
+      /** Eligible stages still waiting after this chunk (includes the
+       *  failures — the client stops looping when a chunk sends 0). */
+      remaining: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Send invoices for every unpaid stage that never had one emailed —
+ * the backlog catch-up for stages that slipped through the signature
+ * gate. Processes a small chunk per call (PDF generation + Resend per
+ * stage is slow) so the server action never hits the function timeout;
+ * the dashboard button keeps calling until a chunk reports 0 sent or
+ * nothing remains. Oldest stage first. Skips clients with no email.
+ */
+export async function batchSendMissingInvoicesAction(): Promise<BatchSendResult> {
+  const CHUNK = 6;
+  const GAP_MS = 700; // Resend rate-limit friendliness
+  try {
+    await requireAdmin();
+    const supabase = await createClient();
+    const { data: rows, error } = await supabase
+      .from("stages")
+      .select("id, address, stage_date, clients(email)")
+      .is("paid_at", null)
+      .gt("amount", 0)
+      .is("invoice_sent_at", null)
+      .not("status", "in", "(cancelled,estimate,scheduled)")
+      .order("stage_date", { ascending: true, nullsFirst: false });
+    if (error) throw new Error(error.message);
+
+    const eligible = (rows ?? []).filter((r: any) => {
+      const c = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+      return !!c?.email;
+    });
+
+    const { sendInvoiceEmailFor } = await import("@/lib/invoice-email-core");
+    let sent = 0;
+    const failed: Array<{ address: string; error: string }> = [];
+    for (const r of eligible.slice(0, CHUNK)) {
+      const res = await sendInvoiceEmailFor(supabase, r.id);
+      if (res.ok) {
+        sent += 1;
+      } else {
+        failed.push({ address: r.address, error: res.error });
+      }
+      await new Promise((resolve) => setTimeout(resolve, GAP_MS));
+    }
+
+    revalidatePath("/");
+    return {
+      ok: true,
+      sent,
+      failed,
+      remaining: eligible.length - sent,
+    };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Batch send failed" };
+  }
+}
+
 /**
  * Set (or clear) the contingency-removal date for a stage — the day
  * the buyer's contingencies lift on the sale. Admin-only; shown on the

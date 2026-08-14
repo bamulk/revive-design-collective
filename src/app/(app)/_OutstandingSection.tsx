@@ -3,6 +3,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import OutstandingInvoicesList, {
   type OutstandingRow,
 } from "@/components/OutstandingInvoicesList";
+import BatchSendInvoicesButton from "@/components/BatchSendInvoicesButton";
 import { invoiceNumberFor } from "@/lib/invoice-pdf";
 
 /**
@@ -47,7 +48,22 @@ export default async function OutstandingSection() {
       }
     >
       {outstandingCount > 0 ? (
-        <OutstandingInvoicesList
+        <>
+          {/* Backlog catch-up: stages that never had an invoice emailed
+              (signature slipped through) — one tap sends them all. */}
+          <div className="flex justify-end mb-2">
+            <BatchSendInvoicesButton
+              eligibleCount={
+                (unpaidList ?? []).filter(
+                  (s: any) =>
+                    !s.invoice_sent_at &&
+                    s.status !== "estimate" &&
+                    s.clients?.email,
+                ).length
+              }
+            />
+          </div>
+          <OutstandingInvoicesList
           isAdmin
           rows={(unpaidList ?? []).map(
             (s: any): OutstandingRow => ({
@@ -73,7 +89,8 @@ export default async function OutstandingSection() {
                 : null,
             }),
           )}
-        />
+          />
+        </>
       ) : (
         <p className="text-sm text-slate-500 dark:text-slate-400 italic px-1">
           Nothing unpaid right now. Nice.
