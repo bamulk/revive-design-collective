@@ -41,6 +41,7 @@ import AdvanceStatusButton from "@/components/AdvanceStatusButton";
 import StatusControl from "@/components/StatusControl";
 import StageClientControl from "@/components/StageClientControl";
 import PhotographerBox from "@/components/PhotographerBox";
+import ContingencyBox from "@/components/ContingencyBox";
 import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
@@ -553,6 +554,13 @@ export default async function StageDetailPage({
           <PhotographerBox
             stageId={id}
             photographerAt={stage.photographer_at ?? null}
+            canEdit={isAdmin}
+          />
+          {/* Contingency-removal date — admins set it; surfaces here
+              and in the dashboard's Contingency removals section. */}
+          <ContingencyBox
+            stageId={id}
+            date={stage.contingency_removal_date ?? null}
             canEdit={isAdmin}
           />
           {(stage.square_footage || stage.bedrooms || stage.bathrooms) && (

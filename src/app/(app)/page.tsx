@@ -19,6 +19,7 @@ import OutstandingSection from "./_OutstandingSection";
 import OutstandingExtensionsSection from "./_OutstandingExtensionsSection";
 import CurrentlyStagedSection from "./_CurrentlyStagedSection";
 import PendingListingsSection from "./_PendingListingsSection";
+import ContingencyRemovalsSection from "./_ContingencyRemovalsSection";
 import NeedPicturesSection from "./_NeedPicturesSection";
 import { after } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
@@ -539,6 +540,12 @@ export default async function DashboardPage() {
           matches so the dashboard stays clean. */}
       <Suspense fallback={null}>
         <PendingListingsSection />
+      </Suspense>
+
+      {/* Contingency removals — active stages with a contingency-
+          removal date, soonest first. Hides itself when none are set. */}
+      <Suspense fallback={null}>
+        <ContingencyRemovalsSection />
       </Suspense>
 
       {/* Outstanding invoices — streams in via its own server
