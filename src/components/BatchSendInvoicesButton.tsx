@@ -5,21 +5,30 @@ import { useRouter } from "next/navigation";
 import { Check, Loader2, Mail } from "lucide-react";
 import {
   batchSendMissingInvoicesAction,
+  batchSendMissingExtensionInvoicesAction,
   type BatchSendResult,
 } from "@/app/(app)/stages/actions";
 
 /**
- * One-tap backlog catch-up on the Outstanding invoices section: emails
- * an invoice to every unpaid stage that never had one sent. Two-step
+ * One-tap backlog catch-up on the Outstanding sections: emails an
+ * invoice to every unpaid stage (variant "invoices") or unpaid
+ * extension (variant "extensions") that never had one sent. Two-step
  * inline confirm, then loops the chunked server action until nothing
- * remains (or a whole chunk fails), showing live progress. Stages whose
+ * remains (or a whole chunk fails), showing live progress. Rows whose
  * client has no email on file are skipped server-side.
  */
 export default function BatchSendInvoicesButton({
   eligibleCount,
+  variant = "invoices",
 }: {
   eligibleCount: number;
+  variant?: "invoices" | "extensions";
 }) {
+  const batchAction =
+    variant === "extensions"
+      ? batchSendMissingExtensionInvoicesAction
+      : batchSendMissingInvoicesAction;
+  const noun = variant === "extensions" ? "extension invoice" : "invoice";
   const [armed, setArmed] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -44,7 +53,7 @@ export default function BatchSendInvoicesButton({
     for (let round = 0; round < 20; round++) {
       let r: BatchSendResult;
       try {
-        r = await batchSendMissingInvoicesAction();
+        r = await batchAction();
       } catch {
         setError("Network hiccup — tap again to continue where it left off.");
         break;
@@ -70,7 +79,8 @@ export default function BatchSendInvoicesButton({
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
         <Loader2 size={12} className="animate-spin" />
-        Sending… {progress} invoice{progress === 1 ? "" : "s"} sent
+        Sending… {progress} {noun}
+        {progress === 1 ? "" : "s"} sent
       </span>
     );
   }
@@ -79,8 +89,8 @@ export default function BatchSendInvoicesButton({
     return (
       <span className="inline-flex flex-col items-end gap-0.5 text-right">
         <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
-          <Check size={12} /> {progress} invoice{progress === 1 ? "" : "s"}{" "}
-          sent
+          <Check size={12} /> {progress} {noun}
+          {progress === 1 ? "" : "s"} sent
         </span>
         {failures.length > 0 && (
           <span className="text-[11px] text-rose-700 max-w-[16rem] leading-tight">
@@ -105,7 +115,7 @@ export default function BatchSendInvoicesButton({
           onClick={() => setArmed(true)}
           className="inline-flex items-center gap-1.5 text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
         >
-          <Mail size={12} /> Send {eligibleCount} missing invoice
+          <Mail size={12} /> Send {eligibleCount} missing {noun}
           {eligibleCount === 1 ? "" : "s"}
         </button>
         {error && (
@@ -120,7 +130,8 @@ export default function BatchSendInvoicesButton({
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 dark:bg-slate-800/70 ring-1 ring-slate-200 dark:ring-slate-700 px-1 py-0.5">
       <span className="text-[11px] text-slate-600 dark:text-slate-300 pl-1.5">
-        Email {eligibleCount} client invoice{eligibleCount === 1 ? "" : "s"}?
+        Email {eligibleCount} client {noun}
+        {eligibleCount === 1 ? "" : "s"}?
       </span>
       <button
         type="button"

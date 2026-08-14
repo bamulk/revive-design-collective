@@ -1559,6 +1559,68 @@ export async function batchSendMissingInvoicesAction(): Promise<BatchSendResult>
 }
 
 /**
+ * Extensions twin of batchSendMissingInvoicesAction: emails the
+ * extension invoice for every unpaid extension that never had one sent
+ * (pdf_sent_at null). Same chunking; each send runs through
+ * resendExtensionInvoiceAction (PDF generated if missing, pdf_sent_at
+ * stamped, reminder clock armed). Oldest extension first.
+ */
+export async function batchSendMissingExtensionInvoicesAction(): Promise<BatchSendResult> {
+  const CHUNK = 6;
+  const GAP_MS = 700;
+  try {
+    await requireAdmin();
+    const supabase = await createClient();
+    const { data: rows, error } = await supabase
+      .from("stage_extensions")
+      .select(
+        "id, extension_date, stage:stages(address, status, clients(email))",
+      )
+      .is("paid_at", null)
+      .gt("amount", 0)
+      .is("pdf_sent_at", null)
+      .order("extension_date", { ascending: true, nullsFirst: false });
+    if (error) throw new Error(error.message);
+
+    const eligible = (rows ?? []).filter((r: any) => {
+      const stage = Array.isArray(r.stage) ? r.stage[0] : r.stage;
+      const c = Array.isArray(stage?.clients)
+        ? stage.clients[0]
+        : stage?.clients;
+      return (
+        stage &&
+        stage.status !== "cancelled" &&
+        stage.status !== "estimate" &&
+        !!c?.email
+      );
+    });
+
+    let sent = 0;
+    const failed: Array<{ address: string; error: string }> = [];
+    for (const r of eligible.slice(0, CHUNK)) {
+      const stage = Array.isArray((r as any).stage)
+        ? (r as any).stage[0]
+        : (r as any).stage;
+      const res = await resendExtensionInvoiceAction(r.id);
+      if (res.ok) {
+        sent += 1;
+      } else {
+        failed.push({
+          address: stage?.address ?? "extension",
+          error: res.error,
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, GAP_MS));
+    }
+
+    revalidatePath("/");
+    return { ok: true, sent, failed, remaining: eligible.length - sent };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Batch send failed" };
+  }
+}
+
+/**
  * Set (or clear) the contingency-removal date for a stage — the day
  * the buyer's contingencies lift on the sale. Admin-only; shown on the
  * stage page and in the dashboard's "Contingency removals" section.

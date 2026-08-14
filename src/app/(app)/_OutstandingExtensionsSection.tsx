@@ -3,6 +3,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import OutstandingExtensionsList, {
   type OutstandingExtensionRow,
 } from "@/components/OutstandingExtensionsList";
+import BatchSendInvoicesButton from "@/components/BatchSendInvoicesButton";
 
 /**
  * Outstanding extensions block on the dashboard — the 30-day-extension
@@ -58,7 +59,19 @@ export default async function OutstandingExtensionsSection() {
       }
     >
       {rows.length > 0 ? (
-        <OutstandingExtensionsList rows={rows} />
+        <>
+          {/* Backlog catch-up: extensions that never had their invoice
+              emailed — one tap sends them all (and arms reminders). */}
+          <div className="flex justify-end mb-2">
+            <BatchSendInvoicesButton
+              variant="extensions"
+              eligibleCount={
+                rows.filter((r) => !r.pdf_sent_at && r.client_email).length
+              }
+            />
+          </div>
+          <OutstandingExtensionsList rows={rows} />
+        </>
       ) : (
         <p className="text-sm text-slate-500 dark:text-slate-400 italic px-1">
           No unpaid extensions right now. Nice.
