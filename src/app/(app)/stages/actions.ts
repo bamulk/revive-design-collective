@@ -1494,6 +1494,34 @@ export async function updatePhotographerAtAction(
 }
 
 /**
+ * Set (or clear) the contingency-removal date for a stage — the day
+ * the buyer's contingencies lift on the sale. Admin-only; shown on the
+ * stage page and in the dashboard's "Contingency removals" section.
+ */
+export async function updateContingencyDateAction(
+  stageId: string,
+  date: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  let value: string | null = null;
+  if (date != null && date !== "") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return { ok: false, error: "Invalid date." };
+    }
+    value = date;
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("stages")
+    .update({ contingency_removal_date: value })
+    .eq("id", stageId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/stages/${stageId}`);
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/**
  * Inline single-field autosave for the stage detail page (admin only).
  * Whitelisted to operational fields — stage_date, destage_date,
  * lockbox_code, notes. Editing stage_date keeps the destage_date
@@ -1787,6 +1815,93 @@ export async function markExtensionPaidAction(
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Mark paid failed" };
+  }
+}
+
+/**
+ * Re-send (or first-send) an extension invoice email — the extensions
+ * twin of sendInvoiceEmailAction. Generates the PDF first if the row
+ * never got one, emails the client on file, and stamps pdf_sent_at —
+ * which arms the same 5-day-then-every-3-days payment-reminder clock
+ * stage invoices use.
+ */
+export async function resendExtensionInvoiceAction(
+  extensionId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await requireAdmin();
+    const supabase = await createClient();
+    const { data: ext, error: extErr } = await supabase
+      .from("stage_extensions")
+      .select(
+        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, line_items, stage_date, destage_date, accept_online_payment, clients(name, email))",
+      )
+      .eq("id", extensionId)
+      .single();
+    if (extErr) throw new Error(extErr.message);
+    const stage = Array.isArray(ext.stage) ? ext.stage[0] : ext.stage;
+    if (!stage) return { ok: false, error: "Stage not found." };
+    const client = Array.isArray((stage as any).clients)
+      ? (stage as any).clients[0]
+      : (stage as any).clients;
+    const clientEmail = (client?.email as string | undefined) || undefined;
+    if (!clientEmail) {
+      return { ok: false, error: "No client email on file." };
+    }
+    const throughDate: string | null =
+      ext.extension_date ?? (stage as any).destage_date ?? null;
+    if (!throughDate) {
+      return { ok: false, error: "Extension has no date on file." };
+    }
+
+    // Make sure there's a PDF to send — generate one for rows that
+    // never got theirs (e.g. a manual extension whose generation
+    // failed at record time).
+    let pdfUrl: string | null = ext.pdf_url ?? null;
+    if (!pdfUrl) {
+      const { generateExtensionInvoice } = await import(
+        "@/lib/extension-core"
+      );
+      const { url } = await generateExtensionInvoice(
+        stage,
+        Number(ext.amount),
+        throughDate,
+      );
+      pdfUrl = url;
+      const { error: pdfErr } = await supabase
+        .from("stage_extensions")
+        .update({ pdf_url: pdfUrl })
+        .eq("id", extensionId);
+      if (pdfErr) throw new Error(pdfErr.message);
+    }
+
+    const { sendExtensionEmailToClient } = await import(
+      "@/lib/extension-core"
+    );
+    const sent = await sendExtensionEmailToClient({
+      clientName: client?.name ?? null,
+      clientEmail,
+      address: (stage as any).address,
+      newDestage: throughDate,
+      amount: Number(ext.amount ?? 0),
+      invoiceUrl: pdfUrl,
+    });
+    if (!sent) {
+      return { ok: false, error: "Email isn't configured on the server." };
+    }
+
+    // Arms (or re-arms) the payment-reminder clock, same as invoices.
+    const { error: stampErr } = await supabase
+      .from("stage_extensions")
+      .update({ pdf_sent_at: new Date().toISOString() })
+      .eq("id", extensionId);
+    if (stampErr) throw new Error(stampErr.message);
+
+    revalidatePath(`/stages/${ext.stage_id}`);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Send failed" };
   }
 }
 

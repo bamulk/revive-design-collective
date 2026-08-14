@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { Card } from "@/components/ui";
 import { formatMDY } from "@/lib/time";
 import QuickMarkExtensionPaid from "@/components/QuickMarkExtensionPaid";
+import ResendExtensionButton from "@/components/ResendExtensionButton";
 
 export type OutstandingExtensionRow = {
   id: string;
@@ -13,6 +14,9 @@ export type OutstandingExtensionRow = {
   address: string;
   client_id: string | null;
   client_name: string | null;
+  client_email: string | null;
+  /** When the extension invoice email last went out (arms reminders). */
+  pdf_sent_at: string | null;
   extension_date: string | null;
   amount: number;
   /** Automated payment reminders sent so far (0 = none yet). */
@@ -178,10 +182,15 @@ export default function OutstandingExtensionsList({
                     (x.client_name ?? "—")
                   )}
                 </div>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                   <QuickMarkExtensionPaid
                     extensionId={x.id}
                     stageId={x.stage_id}
+                  />
+                  <ResendExtensionButton
+                    extensionId={x.id}
+                    clientEmail={x.client_email}
+                    pdfSentAt={x.pdf_sent_at}
                   />
                 </div>
               </div>
@@ -238,7 +247,12 @@ export default function OutstandingExtensionsList({
                         ${x.amount.toFixed(2)}
                       </td>
                       <td className="p-3 text-right">
-                        <div className="inline-flex">
+                        <div className="inline-flex items-center gap-2">
+                          <ResendExtensionButton
+                            extensionId={x.id}
+                            clientEmail={x.client_email}
+                            pdfSentAt={x.pdf_sent_at}
+                          />
                           <QuickMarkExtensionPaid
                             extensionId={x.id}
                             stageId={x.stage_id}

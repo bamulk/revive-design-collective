@@ -18,7 +18,7 @@ export default async function OutstandingExtensionsSection() {
   const { data: unpaid } = await supabase
     .from("stage_extensions")
     .select(
-      "id, stage_id, extension_date, amount, reminder_count, reminder_last_at, stages(address, clients(id, name))",
+      "id, stage_id, extension_date, amount, reminder_count, reminder_last_at, pdf_sent_at, stages(address, clients(id, name, email))",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -35,6 +35,8 @@ export default async function OutstandingExtensionsSection() {
       address: stage?.address ?? "—",
       client_id: client?.id ?? null,
       client_name: client?.name ?? null,
+      client_email: client?.email ?? null,
+      pdf_sent_at: x.pdf_sent_at ?? null,
       extension_date: x.extension_date ?? null,
       amount: Number(x.amount ?? 0),
       reminder_count: Number(x.reminder_count ?? 0),
