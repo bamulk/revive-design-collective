@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runPhotoReminderCheck } from "@/lib/notify";
 import { runPaymentReminderCheck } from "@/lib/payment-reminders";
+import { runUnsignedContractCheck } from "@/lib/unsigned-alerts";
 
 /**
  * Daily cron endpoint — two reminder sweeps in one run (Vercel cron
@@ -13,6 +14,9 @@ import { runPaymentReminderCheck } from "@/lib/payment-reminders";
  *    CC'd party never sees another transaction's invoice; first nudge
  *    ~5 days after the invoice email, then every 3 days (see
  *    src/lib/payment-reminders.ts for the skip rules and safety valves).
+ * 3. Unsigned-agreement alert: email admins about stages staging
+ *    TOMORROW whose agreement isn't signed — unsigned stages never get
+ *    invoiced, so these used to slip through silently.
  *
  * Each pass runs in its own try/catch so a failure in one never
  * silently cancels the other.
@@ -58,12 +62,30 @@ export async function GET(req: NextRequest) {
     console.error("[cron/reminders] payment pass failed:", e);
   }
 
-  console.log("[cron/reminders]", { photos, photosError, payments, paymentsError });
-  return NextResponse.json({
-    ok: !photosError && !paymentsError,
+  let unsigned: unknown = null;
+  let unsignedError: string | null = null;
+  try {
+    unsigned = await runUnsignedContractCheck();
+  } catch (e: any) {
+    unsignedError = e?.message || "unsigned pass failed";
+    console.error("[cron/reminders] unsigned pass failed:", e);
+  }
+
+  console.log("[cron/reminders]", {
     photos,
     photosError,
     payments,
     paymentsError,
+    unsigned,
+    unsignedError,
+  });
+  return NextResponse.json({
+    ok: !photosError && !paymentsError && !unsignedError,
+    photos,
+    photosError,
+    payments,
+    paymentsError,
+    unsigned,
+    unsignedError,
   });
 }
