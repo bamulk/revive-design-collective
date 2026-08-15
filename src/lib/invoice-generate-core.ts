@@ -138,7 +138,10 @@ export async function generateInvoiceFor(
     companyName: template.company_name,
     invoiceNumber,
     invoiceDate: today,
-    dueDate: stage.destage_date ?? null,
+    // Payment is due ON STAGE DAY (business rule; the reminder engine
+    // keys off the same date) — never the destage date, which read as
+    // 30/60-day payment terms on the printed invoice.
+    dueDate: stage.stage_date ?? null,
     clientName: c.name,
     clientEmail: c.email,
     clientAddress: c.address,
@@ -156,7 +159,7 @@ export async function generateInvoiceFor(
     // closing handles disbursement.
     paymentTerms: escrowOn
       ? "Payment due at close of escrow."
-      : "Payment due on completion of stage (unless paying through escrow).",
+      : "Payment due on the day of staging (unless paying through escrow).",
     // The big Terms block at the bottom replaces the old free-form
     // paymentInstructions string.
     paymentInstructions: null,

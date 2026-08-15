@@ -22,7 +22,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "Fee",
-      body: "Client agrees to pay the total fee shown above. An invoice will be issued on the stage date. Payment is due within 14 days of the invoice date unless otherwise agreed in writing.",
+      body: "Client agrees to pay the total fee shown above. An invoice will be issued on the stage date. Payment is due on the day of staging unless otherwise agreed in writing.",
     },
     {
       title: "Access",
