@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { Phone, MessageSquare, Mail, Navigation } from "lucide-react";
+import {
+  Phone,
+  MessageSquare,
+  Mail,
+  Navigation,
+  AlertTriangle,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import StageEditForm from "./StageEditForm";
 import {
@@ -235,6 +241,26 @@ export default async function StageDetailPage({
               )}
             </div>
           )}
+          {/* Listing went pending on Zillow — headline tag so nobody
+              misses that a destage is coming. Mirrors the dashboard's
+              Pending listings section; date = first seen pending by the
+              daily check. */}
+          {stage.listing_status &&
+            /PENDING|CONTINGENT|UNDER_CONTRACT/.test(stage.listing_status) && (
+              <span
+                className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:ring-rose-900/60"
+                title="Zillow listing status — updated by the daily check"
+              >
+                <AlertTriangle size={12} />
+                {String(stage.listing_status)
+                  .replace(/_/g, " ")
+                  .toLowerCase()
+                  .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                {stage.listing_pending_notified_at
+                  ? ` since ${formatMDY(stage.listing_pending_notified_at)}`
+                  : " on Zillow"}
+              </span>
+            )}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
