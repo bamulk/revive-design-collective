@@ -20,6 +20,7 @@ import OutstandingExtensionsSection from "./_OutstandingExtensionsSection";
 import CurrentlyStagedSection from "./_CurrentlyStagedSection";
 import PendingListingsSection from "./_PendingListingsSection";
 import ContingencyRemovalsSection from "./_ContingencyRemovalsSection";
+import ActionItemsSection from "./_ActionItemsSection";
 import NeedPicturesSection from "./_NeedPicturesSection";
 import { after } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
@@ -527,6 +528,15 @@ export default async function DashboardPage() {
           })}
         </div>
       </section>
+
+      {/* Action items — the triage list: scheduled stages without a
+          signed agreement, listings pending 20+ days, and tomorrow's
+          stages with no pictures. Admin-only; hides when clear. */}
+      {isAdmin && (
+        <Suspense fallback={null}>
+          <ActionItemsSection />
+        </Suspense>
+      )}
 
       {/* Need Pictures — upcoming stages still missing photos. Streamed
           in; visible to everyone and hides itself when every upcoming
