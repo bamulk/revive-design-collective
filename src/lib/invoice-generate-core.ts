@@ -24,7 +24,7 @@ export async function generateInvoiceFor(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, client:clients(name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, bill_to, client:clients(name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -143,6 +143,7 @@ export async function generateInvoiceFor(
     // 30/60-day payment terms on the printed invoice.
     dueDate: stage.stage_date ?? null,
     clientName: c.name,
+    billTo: (stage as any).bill_to ?? null,
     clientEmail: c.email,
     clientAddress: c.address,
     propertyAddress: stage.address,

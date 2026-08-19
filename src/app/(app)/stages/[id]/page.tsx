@@ -549,6 +549,7 @@ export default async function StageDetailPage({
               stageDate={stage.stage_date ?? null}
               destageDate={stage.destage_date ?? null}
               lockboxCode={stage.lockbox_code ?? null}
+              billTo={stage.bill_to ?? null}
               notes={stage.notes ?? null}
               milesFromBarn={milesFromBarn}
             />

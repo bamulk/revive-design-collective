@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { Loader2, Check } from "lucide-react";
 import { updateStageFieldAction } from "@/app/(app)/stages/actions";
 
-type FieldKey = "stage_date" | "destage_date" | "lockbox_code" | "notes";
+type FieldKey =
+  | "stage_date"
+  | "destage_date"
+  | "lockbox_code"
+  | "notes"
+  | "bill_to";
 
 /**
  * Admin-only inline-editable stage fields with autosave. Renders the
@@ -21,6 +26,7 @@ export default function InlineStageFields({
   stageDate,
   destageDate,
   lockboxCode,
+  billTo,
   notes,
   milesFromBarn,
 }: {
@@ -28,6 +34,8 @@ export default function InlineStageFields({
   stageDate: string | null;
   destageDate: string | null;
   lockboxCode: string | null;
+  /** Billing entity (e.g. an LLC) printed as the invoice's Bill To. */
+  billTo: string | null;
   notes: string | null;
   milesFromBarn: number | null;
 }) {
@@ -56,6 +64,14 @@ export default function InlineStageFields({
           initial={lockboxCode ?? ""}
           mono
           placeholder="e.g. 1234"
+        />
+        <InlineField
+          stageId={stageId}
+          field="bill_to"
+          label="Bill to (invoice)"
+          type="text"
+          initial={billTo ?? ""}
+          placeholder="LLC or company — blank = client"
         />
         <div>
           <FieldLabel>Miles from barn</FieldLabel>

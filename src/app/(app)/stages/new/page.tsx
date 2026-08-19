@@ -76,6 +76,19 @@ export default async function NewStagePage({
           />
         </label>
         <label className="block text-sm">
+          Bill to (optional)
+          <input
+            name="bill_to"
+            autoComplete="off"
+            placeholder="LLC or company to bill, e.g. 123 Main St LLC"
+            className="mt-1 w-full border rounded px-3 py-2.5 text-base"
+          />
+          <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Printed as the invoice&rsquo;s Bill To (client shown as c/o).
+            Leave blank to bill the client directly.
+          </span>
+        </label>
+        <label className="block text-sm">
           Notes
           <textarea name="notes" className="mt-1 w-full border rounded px-3 py-2.5 text-base" rows={4} />
         </label>

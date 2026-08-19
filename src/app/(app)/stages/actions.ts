@@ -218,6 +218,10 @@ export async function createStageAction(formData: FormData) {
     notes: (formData.get("notes") as string) || null,
     status: (formData.get("status") as string) || "scheduled",
     lockbox_code: (formData.get("lockbox_code") as string)?.trim() || null,
+    // Per-stage billing entity (invoice Bill To). Create-only here —
+    // edits happen via the stage page's inline field, so the full edit
+    // form can't silently wipe it.
+    bill_to: (formData.get("bill_to") as string)?.trim() || null,
     city: (formData.get("city") as string)?.trim() || null,
     square_footage: parseIntOrNull(formData.get("square_footage")),
     bedrooms: parseIntOrNull(formData.get("bedrooms")),
@@ -1713,10 +1717,12 @@ export async function updateContingencyDateAction(
  */
 export async function updateStageFieldAction(
   stageId: string,
-  field: "stage_date" | "destage_date" | "lockbox_code" | "notes",
+  field: "stage_date" | "destage_date" | "lockbox_code" | "notes" | "bill_to",
   value: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const ALLOWED = ["stage_date", "destage_date", "lockbox_code", "notes"];
+  // bill_to (billing entity) is admin-only like the dates — it lands
+  // on the invoice, so stagers can't touch it.
+  const ALLOWED = ["stage_date", "destage_date", "lockbox_code", "notes", "bill_to"];
   if (!ALLOWED.includes(field)) {
     return { ok: false, error: "Field not editable." };
   }
@@ -2017,7 +2023,7 @@ export async function resendExtensionInvoiceAction(
     const { data: ext, error: extErr } = await supabase
       .from("stage_extensions")
       .select(
-        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, line_items, stage_date, destage_date, accept_online_payment, clients(name, email))",
+        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, bill_to, line_items, stage_date, destage_date, accept_online_payment, clients(name, email))",
       )
       .eq("id", extensionId)
       .single();
@@ -2160,7 +2166,7 @@ export async function recordManualExtensionAction(
     const { data: stage, error: fetchErr } = await supabase
       .from("stages")
       .select(
-        "id, address, city, amount, stage_date, destage_date, extension_count, clients(name, email)",
+        "id, address, city, amount, bill_to, stage_date, destage_date, extension_count, clients(name, email)",
       )
       .eq("id", stageId)
       .single();

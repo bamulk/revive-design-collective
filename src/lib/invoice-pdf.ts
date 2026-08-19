@@ -19,6 +19,9 @@ export type InvoiceInput = {
   invoiceDate: string;          // ISO yyyy-mm-dd
   dueDate?: string | null;      // ISO yyyy-mm-dd
   clientName: string;
+  /** Per-stage billing entity (e.g. an LLC) — when set, printed as the
+   *  Bill To name with the client shown as "c/o" beneath. */
+  billTo?: string | null;
   clientEmail?: string | null;
   clientAddress?: string | null;
   propertyAddress: string;
@@ -189,8 +192,15 @@ export async function generateInvoicePdf(
   // Bill To / Property
   drawText("Bill To", { size: 9, font: bold, color: muted });
   y -= 14;
-  drawText(input.clientName, { size: 11 });
-  y -= 14;
+  if (input.billTo) {
+    drawText(input.billTo, { size: 11 });
+    y -= 14;
+    drawText(`c/o ${input.clientName}`, { size: 10, color: muted });
+    y -= 14;
+  } else {
+    drawText(input.clientName, { size: 11 });
+    y -= 14;
+  }
   if (input.clientEmail) {
     drawText(input.clientEmail, { size: 10, color: muted });
     y -= 14;

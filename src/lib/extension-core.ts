@@ -38,7 +38,7 @@ export async function loadStageByToken(token: string) {
     .from("stages")
     .select(
       `
-        id, address, city, status, stage_date, destage_date, amount,
+        id, address, city, status, stage_date, destage_date, amount, bill_to,
         package_key, add_ons, discount, line_items,
         extension_token, extension_token_consumed, extension_count,
         extension_invoice_pdf_url, extension_invoice_amount,
@@ -197,6 +197,7 @@ export async function generateExtensionInvoice(
     invoiceDate: today,
     dueDate: null,
     clientName: stage.clients?.name ?? "Client",
+    billTo: stage.bill_to ?? null,
     clientEmail: stage.clients?.email ?? null,
     propertyAddress: stage.city
       ? `${stage.address}, ${stage.city}`
