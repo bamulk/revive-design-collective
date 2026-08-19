@@ -17,6 +17,7 @@ import {
   Activity,
   Truck,
   Clock,
+  KeyRound,
   Menu,
   X,
 } from "lucide-react";
@@ -91,6 +92,12 @@ function buildItems(isAdmin: boolean, canEstimate: boolean): Item[] {
         match: (p) => p.startsWith("/estimates"),
       });
     }
+    items.push({
+      href: "/account",
+      label: "Account",
+      icon: KeyRound,
+      match: (p) => p.startsWith("/account"),
+    });
     return items;
   }
   return [
@@ -165,6 +172,12 @@ function buildItems(isAdmin: boolean, canEstimate: boolean): Item[] {
       label: "Contract",
       icon: FileText,
       match: (p: string) => p.startsWith("/admin/contract"),
+    },
+    {
+      href: "/account",
+      label: "Account",
+      icon: KeyRound,
+      match: (p: string) => p.startsWith("/account"),
     },
   ];
 }

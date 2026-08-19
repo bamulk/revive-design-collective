@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { KeyRound, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 
@@ -18,6 +19,41 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Passkeys render only after a client-side capability check so the
+  // server HTML never disagrees with the first paint.
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  useEffect(() => {
+    setPasskeySupported(
+      typeof window !== "undefined" && !!window.PublicKeyCredential,
+    );
+  }, []);
+
+  async function handlePasskey() {
+    setError(null);
+    setPasskeyLoading(true);
+    try {
+      const { error: pkError } = await supabase.auth.signInWithPasskey();
+      if (pkError) {
+        // A cancelled Face ID prompt isn't an error worth shouting about.
+        if (!/NotAllowed|cancel|abort|timed? ?out/i.test(pkError.message)) {
+          setError(
+            /passkey_disabled/.test(
+              `${(pkError as { code?: string }).code ?? ""} ${pkError.message}`,
+            )
+              ? "Passkey sign-in isn't enabled yet — use your password."
+              : pkError.message,
+          );
+        }
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } finally {
+      setPasskeyLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,6 +150,29 @@ export default function LoginPage() {
         <Button disabled={loading} className="w-full">
           {loading ? "…" : "Sign in"}
         </Button>
+
+        {passkeySupported && (
+          <>
+            <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+              <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+              or
+              <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            </div>
+            <button
+              type="button"
+              onClick={() => void handlePasskey()}
+              disabled={passkeyLoading || loading}
+              className="w-full inline-flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600 rounded-lg px-3.5 py-3 text-base font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60"
+            >
+              {passkeyLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <KeyRound size={16} />
+              )}
+              Sign in with a passkey
+            </button>
+          </>
+        )}
 
         <p className="text-center text-xs text-slate-500 dark:text-slate-400">
           Access is by invitation. Need an account? Ask an admin to invite
