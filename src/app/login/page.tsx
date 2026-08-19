@@ -6,6 +6,7 @@ import Image from "next/image";
 import { KeyRound, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
+import { sendPasswordResetAction } from "./actions";
 
 /**
  * Sign-in page. Public sign-up is intentionally disabled — accounts
@@ -23,6 +24,10 @@ export default function LoginPage() {
   // server HTML never disagrees with the first paint.
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  // "Forgot password" swaps the form into reset mode, reusing the
+  // email field. resetSent shows the always-generic confirmation.
+  const [mode, setMode] = useState<"signin" | "reset">("signin");
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     setPasskeySupported(
@@ -58,6 +63,20 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (mode === "reset") {
+      setLoading(true);
+      try {
+        await sendPasswordResetAction(email);
+        setResetSent(true);
+      } catch {
+        // The action never throws for account reasons — this is a
+        // network failure. Show the generic message anyway on retry.
+        setError("Couldn't reach the server — try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,21 +144,32 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3.5 py-3 text-base text-slate-900 dark:text-slate-100"
           />
-          <label htmlFor="password" className="sr-only">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3.5 py-3 text-base text-slate-900 dark:text-slate-100"
-          />
+          {mode === "signin" && (
+            <>
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3.5 py-3 text-base text-slate-900 dark:text-slate-100"
+              />
+            </>
+          )}
         </div>
+
+        {mode === "reset" && resetSent && (
+          <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            If that email has an account, a reset link is on its way. Check
+            your inbox, tap the link, and choose a new password.
+          </p>
+        )}
 
         {error && (
           <p className="text-red-600 text-sm bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -147,11 +177,25 @@ export default function LoginPage() {
           </p>
         )}
 
-        <Button disabled={loading} className="w-full">
-          {loading ? "…" : "Sign in"}
+        <Button disabled={loading || (mode === "reset" && resetSent)} className="w-full">
+          {loading ? "…" : mode === "reset" ? "Email me a reset link" : "Sign in"}
         </Button>
 
-        {passkeySupported && (
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "signin" ? "reset" : "signin");
+              setResetSent(false);
+              setError(null);
+            }}
+            className="text-xs text-slate-600 dark:text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-900 dark:hover:text-slate-200"
+          >
+            {mode === "signin" ? "Forgot password?" : "← Back to sign in"}
+          </button>
+        </div>
+
+        {mode === "signin" && passkeySupported && (
           <>
             <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
               <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
