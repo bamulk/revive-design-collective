@@ -16,19 +16,19 @@ const H = 220;
 const PAD = { top: 12, right: 44, bottom: 24, left: 30 };
 
 /**
- * Two-series line chart: Sacramento-metro median days to pending
- * (Zillow) vs our staged homes' staged→pending days. One y-axis (both
- * are days), zero-based so magnitude reads honestly. Hover shows a
+ * Line chart: Sacramento-metro days from listing to closed (Zillow
+ * days-to-pending + days-to-close), with an optional second series
+ * (unused today). One y-axis (both are days), zero-based so magnitude reads honestly. Hover shows a
  * crosshair + tooltip for the nearest month. Colors are a validated
  * CVD-safe pair (indigo / brand gold); identity is carried by the
  * legend + end labels, never color alone.
  */
 export default function MarketDomChart({
   market,
-  ours,
+  ours = [],
 }: {
   market: ChartPoint[];
-  ours: ChartPoint[];
+  ours?: ChartPoint[];
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -90,7 +90,7 @@ export default function MarketDomChart({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 dark:bg-indigo-400" />
-          Sacramento metro — median days to pending (Zillow)
+          Sacramento metro — days from listing to closed (Zillow)
         </span>
         {oursPts.length > 0 && (
           <span className="inline-flex items-center gap-1.5">
@@ -110,7 +110,7 @@ export default function MarketDomChart({
           viewBox={`0 0 ${W} ${H}`}
           className="w-full h-auto select-none"
           role="img"
-          aria-label={`Sacramento median days to pending, last ${months.length} months. Latest: ${latest ? `${latest.days} days in ${monthLabel(latest.month)}` : "n/a"}.`}
+          aria-label={`Sacramento days from listing to closed, last ${months.length} months. Latest: ${latest ? `${latest.days} days in ${monthLabel(latest.month)}` : "n/a"}.`}
         >
           {/* Recessive grid + y labels */}
           {gridVals.map((v) => (
