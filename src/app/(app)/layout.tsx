@@ -5,6 +5,8 @@ import RouteLoader from "@/components/RouteLoader";
 import PullToRefresh from "@/components/PullToRefresh";
 import OfflineSupport from "@/components/OfflineSupport";
 import PhotoOutboxPill from "@/components/PhotoOutboxPill";
+import NavHistoryTracker from "@/components/NavHistoryTracker";
+import { Suspense } from "react";
 import { TEAM_ROLES, canEstimate } from "@/lib/permissions";
 
 export default async function AppLayout({
@@ -43,6 +45,11 @@ export default async function AppLayout({
       {/* Offline: SW registration + offline banner + photo outbox. */}
       <OfflineSupport />
       <PhotoOutboxPill />
+      {/* Records in-app route changes so Back links return to the page
+          the user actually came from. useSearchParams needs Suspense. */}
+      <Suspense fallback={null}>
+        <NavHistoryTracker />
+      </Suspense>
       {/* vapidPublicKey is passed to every team member (stagers + lead
           stagers + admins) so they can all enable the push toggle;
           stagers receive crew-assignment alerts once they turn it on. */}

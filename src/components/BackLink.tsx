@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { readNavStack } from "./NavHistoryTracker";
+
+/** Only ever send Back to a real app page — never auth/login/portal. */
+const APP_PATH = /^\/(?!login|auth\b|auth\/|portal|set-password)/;
 
 /**
- * "Back" link that always navigates to its declared `fallback` href.
+ * "Back" link that returns to the page the user actually came from.
  *
- * We used to do `router.back()` when `window.history.length > 1`, but
- * almost every visit to a page has prior history (sign-in redirect,
- * auth callback, tab from another site) — so back was effectively
- * always firing and the user would land somewhere unrelated like
- * /auth/callback or a previous tab's page. Predictable beats clever:
- * the fallback href IS where the user should land, every time.
+ * Target = the most recent DIFFERENT entry in the in-app navigation
+ * stack (see NavHistoryTracker), falling back to the declared
+ * `fallback` href when there is none (deep link from an email, fresh
+ * PWA launch). We deliberately don't use router.back(): browser
+ * history is full of sign-in redirects and /auth/callback hops, so it
+ * used to land users somewhere unrelated.
  *
- * It also PREFETCHES that target on mount. The detail page sits idle
- * while the user reads, so warming the list RSC into the client Router
- * Cache (paired with experimental.staleTimes.dynamic) makes the Back
- * tap render from cache with no server round-trip — the main fix for
- * "slow after viewing a stage." A default <Link> only prefetches the
- * loading boundary for dynamic routes, so we call router.prefetch
- * explicitly to fetch the full payload.
+ * The target is resolved client-side after mount (sessionStorage), so
+ * the server-rendered href is the fallback and swaps once hydrated.
+ * It's also PREFETCHED so the tap renders from the Router Cache.
  */
 export default function BackLink({
   fallback,
@@ -32,13 +32,29 @@ export default function BackLink({
   className?: string;
 }) {
   const router = useRouter();
+  const [target, setTarget] = useState(fallback);
 
   useEffect(() => {
-    router.prefetch(fallback);
-  }, [router, fallback]);
+    const here = window.location.pathname + window.location.search;
+    const stack = readNavStack();
+    // Walk back past the current page (it may or may not have been
+    // recorded yet, depending on effect order) to the previous entry.
+    let prev: string | undefined;
+    for (let i = stack.length - 1; i >= 0; i--) {
+      if (stack[i] !== here) {
+        prev = stack[i];
+        break;
+      }
+    }
+    setTarget(prev && APP_PATH.test(prev) ? prev : fallback);
+  }, [fallback]);
+
+  useEffect(() => {
+    router.prefetch(target);
+  }, [router, target]);
 
   return (
-    <Link href={fallback} prefetch className={className}>
+    <Link href={target} prefetch className={className}>
       {children}
     </Link>
   );

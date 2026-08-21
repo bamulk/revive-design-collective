@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackLink from "@/components/BackLink";
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -100,12 +101,12 @@ export default async function ClientDetailPage({
   return (
     <div className="space-y-8">
       <div>
-        <Link
-          href={backToStage ?? "/clients"}
+        <BackLink
+          fallback={backToStage ?? "/clients"}
           className="text-sm text-slate-700 dark:text-slate-300 hover:underline"
         >
-          {backToStage ? "← Back to stage" : "← All clients"}
-        </Link>
+          ← Back
+        </BackLink>
         <h1 className="text-2xl font-semibold mt-1">{client.name}</h1>
       </div>
 
