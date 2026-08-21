@@ -26,7 +26,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "Access",
-      body: "Client will provide Stager reasonable access to the Property on the stage and destage dates. Delays caused by inaccessibility may incur rescheduling fees.",
+      body: "Client will provide Stager reasonable access to the Property on the stage and destage dates. Fees for a missing lockbox key, an inaccessible home, or a home not ready for staging are set out in the Additional Fees section, which Client initials to acknowledge.",
     },
     {
       title: "Care of Property",
