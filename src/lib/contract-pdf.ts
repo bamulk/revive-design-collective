@@ -1,10 +1,13 @@
 // Dynamic PDF generator for the Home Staging Services Agreement.
 //
-// Produces a single-page contract with the stage's details filled in and a
-// `{{client_signature}}` placement marker SignatureAPI overlays a signature
-// field on.
+// Produces the contract with the stage's details filled in — one page
+// when the template is short, two when the editable Terms run long —
+// and RETURNS the computed SignatureAPI field positions (signature +
+// required Additional-Fees initials, per signer) so the overlays always
+// land on the drawn lines.
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { ARRIVAL_FEE_CLAUSE } from "./arrival-fees";
 import { sanitizePdfText } from "./pdf-text";
 
 export type ContractLineItem = {
@@ -88,7 +91,7 @@ function renderTermBody(body: string, input: ContractInput): string {
 
 export async function generateContractPdf(
   input: ContractInput
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; fields: ContractFieldPositions }> {
   const company = input.companyName || "Staging Co.";
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -100,7 +103,7 @@ export async function generateContractPdf(
   pdf.setTitle(`Staging Agreement — ${input.propertyAddress}`);
   pdf.setAuthor(company);
 
-  const page = pdf.addPage([612, 792]); // US Letter
+  let page = pdf.addPage([612, 792]); // US Letter
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
@@ -284,91 +287,118 @@ export async function generateContractPdf(
     i += 1;
   }
 
-  // Signature block(s) — anchored to fixed positions near the bottom of
-  // page 1 so SignatureAPI's overlay (which uses the same coordinates
-  // from SIGNATURE_FIELD / SECONDARY_SIGNATURE_FIELD below) lines up
-  // with the visible line every time, regardless of how much body
-  // content was drawn above. When a secondary signer is set, render
-  // both side-by-side with smaller widths.
+  // ---- Additional Fees (initialed) + Signatures --------------------
+  // FLOWED after the terms — spilling onto a fresh page when the
+  // template runs long — instead of fixed coordinates, which the
+  // editable Terms list had already grown past. SignatureAPI field
+  // positions are computed from the actual layout and returned to the
+  // caller, so the overlays always land on the drawn lines.
   const PAGE_HEIGHT = 792;
   const hasSecondary = !!input.secondaryRecipientName;
   const SIG_WIDTH = hasSecondary ? 220 : 260;
+  const SECOND_COL = 336; // 56 (left) + 220 (width) + 60 gap
+  const currentPage = () => pdf.getPageCount(); // 1-indexed
+  const ensureSpace = (needed: number) => {
+    if (y - needed < margin) {
+      page = pdf.addPage([612, 792]);
+      y = 792 - margin;
+    }
+  };
+  const toPos = (baselineY: number, left: number): ContractFieldPos => ({
+    page: currentPage(),
+    top: PAGE_HEIGHT - baselineY,
+    left,
+  });
 
-  // Header above the signature row.
-  const headerY = PAGE_HEIGHT - SIGNATURE_FIELD.top + 56;
-  y = headerY;
-  drawText(
-    hasSecondary ? "Signatures" : "Client Signature",
-    { size: 12, font: bold },
-  );
-
-  const drawSigBox = (label: string, name: string, posTop: number, posLeft: number) => {
-    const sigY = PAGE_HEIGHT - posTop;
-    const sigX = posLeft;
+  // Additional Fees block (client initials required).
+  const feeLines = wrap(ARRIVAL_FEE_CLAUSE, 9);
+  ensureSpace(20 + 14 + feeLines.length * 11 + 30 + 30);
+  y -= 6;
+  drawText("Additional Fees (please initial)", { size: 11, font: bold });
+  y -= 14;
+  for (const line of feeLines) {
+    drawText(line, { size: 9 });
+    y -= 11;
+  }
+  y -= 30; // room for the 24pt initials overlay (drawn upward from the line)
+  const drawInitialsBox = (name: string, left: number) => {
     page.drawLine({
-      start: { x: sigX, y: sigY - 2 },
-      end: { x: sigX + SIG_WIDTH, y: sigY - 2 },
+      start: { x: left, y: y - 2 },
+      end: { x: left + 90, y: y - 2 },
       thickness: 0.75,
       color: rgb(0.6, 0.62, 0.68),
     });
-    page.drawText(sanitizePdfText(name), {
-      x: sigX,
-      y: sigY - 16,
-      size: 10,
-      font,
-      color: muted,
-    });
-    page.drawText(label, {
-      x: sigX,
-      y: sigY - 30,
-      size: 9,
+    page.drawText(sanitizePdfText(`Initials — ${name}`), {
+      x: left,
+      y: y - 13,
+      size: 8,
       font,
       color: muted,
     });
   };
-
-  drawSigBox(
-    hasSecondary ? "Client" : "Client",
-    input.clientName,
-    SIGNATURE_FIELD.top,
-    SIGNATURE_FIELD.left,
-  );
+  drawInitialsBox(input.clientName, margin);
+  const initials = toPos(y, margin);
+  let secondaryInitials: ContractFieldPos | undefined;
   if (hasSecondary) {
-    drawSigBox(
-      "Co-signer",
-      input.secondaryRecipientName!,
-      SECONDARY_SIGNATURE_FIELD.top,
-      SECONDARY_SIGNATURE_FIELD.left,
-    );
+    drawInitialsBox(input.secondaryRecipientName!, SECOND_COL);
+    secondaryInitials = toPos(y, SECOND_COL);
+  }
+  y -= 34;
+
+  // Signature block(s). Same anchor/line relationship as before: the
+  // overlay anchor sits 64pt below the header, the line 2pt under it.
+  ensureSpace(18 + 64 + 36);
+  drawText(hasSecondary ? "Signatures" : "Client Signature", {
+    size: 12,
+    font: bold,
+  });
+  y -= 64; // the 60pt signature overlay draws upward from the line
+  const drawSigBox = (label: string, name: string, left: number) => {
+    page.drawLine({
+      start: { x: left, y: y - 2 },
+      end: { x: left + SIG_WIDTH, y: y - 2 },
+      thickness: 0.75,
+      color: rgb(0.6, 0.62, 0.68),
+    });
+    page.drawText(sanitizePdfText(name), {
+      x: left,
+      y: y - 16,
+      size: 10,
+      font,
+      color: muted,
+    });
+    page.drawText(label, { x: left, y: y - 30, size: 9, font, color: muted });
+  };
+  drawSigBox("Client", input.clientName, margin);
+  const signature = toPos(y, margin);
+  let secondarySignature: ContractFieldPos | undefined;
+  if (hasSecondary) {
+    drawSigBox("Co-signer", input.secondaryRecipientName!, SECOND_COL);
+    secondarySignature = toPos(y, SECOND_COL);
   }
 
-  return await pdf.save();
+  const bytes = await pdf.save();
+  return {
+    bytes,
+    fields: {
+      signature,
+      initials,
+      ...(secondarySignature ? { secondarySignature } : {}),
+      ...(secondaryInitials ? { secondaryInitials } : {}),
+    },
+  };
 }
 
 /**
- * Where SignatureAPI should overlay the client's signature.
- *
- * Coordinates are in PDF points using SignatureAPI's convention:
- *  - `page` is 1-indexed
- *  - `top` is the distance from the TOP of the page
- *  - `left` is the distance from the LEFT edge
- *
- * The PDF generator above translates `top` into pdf-lib's bottom-origin
- * y-coordinate via PAGE_HEIGHT - top.
+ * A SignatureAPI fixed position: `page` is 1-indexed, `top` is measured
+ * from the TOP of the page in PDF points, `left` from the left edge.
  */
-export const SIGNATURE_FIELD = {
-  page: 1,
-  top: 682, // PAGE_HEIGHT (792) - 110 = 682 from top
-  left: 56,
-} as const;
+export type ContractFieldPos = { page: number; top: number; left: number };
 
-/**
- * Where SignatureAPI overlays the secondary signer's signature when a
- * secondary recipient is set on the stage. Positioned side-by-side
- * with SIGNATURE_FIELD so both fit on the same row of page 1.
- */
-export const SECONDARY_SIGNATURE_FIELD = {
-  page: 1,
-  top: 682,
-  left: 336, // 56 (left) + 220 (width) + 60 gap
-} as const;
+/** Where the envelope's places must go — computed per document. */
+export type ContractFieldPositions = {
+  signature: ContractFieldPos;
+  initials: ContractFieldPos;
+  secondarySignature?: ContractFieldPos;
+  secondaryInitials?: ContractFieldPos;
+};

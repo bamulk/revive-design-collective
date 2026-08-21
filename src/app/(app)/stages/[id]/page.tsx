@@ -49,6 +49,7 @@ import StatusControl from "@/components/StatusControl";
 import StageClientControl from "@/components/StageClientControl";
 import PhotographerBox from "@/components/PhotographerBox";
 import ContingencyBox from "@/components/ContingencyBox";
+import StageFees from "./_StageFees";
 import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
@@ -591,6 +592,15 @@ export default async function StageDetailPage({
             date={stage.contingency_removal_date ?? null}
             canEdit={isAdmin}
           />
+          {/* Arrival issues — crew reports no-key / inaccessible / not-ready;
+              admins approve the resulting extra-fee invoice. */}
+          <Suspense fallback={null}>
+            <StageFees
+              stageId={id}
+              isAdmin={isAdmin}
+              clientEmail={stage.clients?.email ?? null}
+            />
+          </Suspense>
           {(stage.square_footage || stage.bedrooms || stage.bathrooms) && (
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
               <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm">

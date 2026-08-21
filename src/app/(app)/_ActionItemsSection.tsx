@@ -1,18 +1,20 @@
 import Link from "next/link";
-import { AlertTriangle, Camera, FileSignature, Clock } from "lucide-react";
+import { AlertTriangle, Camera, FileSignature, Clock, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import { formatMDY, todayPacificISO, addDaysISO } from "@/lib/time";
+import { arrivalFeeLabels } from "@/lib/arrival-fees";
 
 /**
- * "Action items" triage panel at the top of the dashboard — the three
- * things that most reliably turn into fires when nobody notices:
+ * "Action items" triage panel at the top of the dashboard — the things
+ * that most reliably turn into fires when nobody notices:
  *
  *   1. Scheduled stages with no signed agreement ($0 internal stages
  *      exempt — no agreement expected on those)
  *   2. Staged houses that went pending on Zillow 20+ days ago (the
  *      sale should be closing — plan the destage)
  *   3. Stages happening TOMORROW with zero pictures uploaded
+ *   4. Arrival-issue fee invoices waiting for an admin to approve
  *
  * Admin-only (parent gates), hides itself when everything's clear.
  */
@@ -46,7 +48,7 @@ export default async function ActionItemsSection() {
     Date.now() - 20 * 86400000,
   ).toISOString();
 
-  const [unsignedRes, longPendingRes, tomorrowRes] = await Promise.all([
+  const [unsignedRes, longPendingRes, tomorrowRes, feesRes] = await Promise.all([
     supabase
       .from("stages")
       .select(
@@ -73,6 +75,13 @@ export default async function ActionItemsSection() {
       .select("id, address, city, clients(name)")
       .eq("stage_date", tomorrow)
       .in("status", ["scheduled", "staged"]),
+    supabase
+      .from("stage_fees")
+      .select(
+        "id, reasons, amount, reported_at, stage:stages(id, address, city, clients(name))",
+      )
+      .eq("status", "pending")
+      .order("reported_at", { ascending: true }),
   ]);
 
   const unsigned: Item[] = (unsignedRes.data ?? []).map((s: any) =>
@@ -123,7 +132,27 @@ export default async function ActionItemsSection() {
       .map((s) => itemFrom(s, "Stages TOMORROW — no pictures uploaded", "rose"));
   }
 
-  const total = unsigned.length + longPending.length + noPictures.length;
+  // Arrival-issue fee invoices waiting for an admin to approve the send.
+  const pendingFees: Item[] = (feesRes.data ?? [])
+    .map((f: any) => {
+      const stage = Array.isArray(f.stage) ? f.stage[0] : f.stage;
+      if (!stage) return null;
+      const amount = Number(f.amount ?? 0);
+      const labels = arrivalFeeLabels(
+        Array.isArray(f.reasons) ? f.reasons : [],
+      ).join(", ");
+      return itemFrom(
+        stage,
+        `$${amount.toFixed(0)} fee — ${labels} — reported ${formatMDY(
+          new Date(f.reported_at),
+        )}`,
+        "amber",
+      );
+    })
+    .filter((x): x is Item => x != null);
+
+  const total =
+    unsigned.length + longPending.length + noPictures.length + pendingFees.length;
   if (total === 0) return null;
 
   const groups: Array<{
@@ -145,6 +174,11 @@ export default async function ActionItemsSection() {
       title: "Staging tomorrow with no pictures",
       icon: <Camera size={13} />,
       items: noPictures,
+    },
+    {
+      title: "Extra-fee invoices awaiting approval",
+      icon: <Receipt size={13} />,
+      items: pendingFees,
     },
   ];
 

@@ -12,6 +12,7 @@ import {
   Trash2,
   UserRound,
   type LucideIcon,
+  Receipt,
 } from "lucide-react";
 import { Card } from "@/components/ui";
 import { formatMDY } from "@/lib/time";
@@ -41,6 +42,7 @@ const KIND_META: { kind: string; label: string; icon: LucideIcon; color: string 
     // (even in the per-stage box, which hides the chips but still
     // filters by it).
     { kind: "stage_client_change", label: "Client", icon: UserRound, color: "text-sky-700" },
+    { kind: "arrival_issue", label: "Arrival issues", icon: Receipt, color: "text-amber-700" },
   ];
 const ALL_KINDS = KIND_META.map((k) => k.kind);
 
@@ -161,6 +163,34 @@ function renderEvent(item: ActivityItem): {
           <>
             <strong>{actor}</strong> recorded a {fmtMoney(amt)} payment
             {method} on <em>{addr}</em>
+          </>
+        ),
+      };
+    }
+    case "arrival_issue": {
+      const reasons = Array.isArray(details.reasons)
+        ? (details.reasons as string[])
+        : [];
+      const labels = reasons
+        .map((r) =>
+          r === "no_lockbox_key"
+            ? "no lockbox key"
+            : r === "house_inaccessible"
+              ? "house inaccessible"
+              : r === "house_not_ready"
+                ? "house not ready"
+                : r,
+        )
+        .join(", ");
+      const amount = Number(details.amount ?? 0);
+      return {
+        icon: <Receipt size={14} className="text-amber-700" />,
+        text: (
+          <>
+            <strong>{actor}</strong> reported an arrival issue on{" "}
+            <em>{addr}</em>
+            {labels ? <> — {labels}</> : null}
+            {amount > 0 ? <> · ${amount.toFixed(0)} fee awaiting approval</> : null}
           </>
         ),
       };

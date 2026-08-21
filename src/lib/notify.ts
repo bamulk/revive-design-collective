@@ -212,3 +212,27 @@ export async function notifyVehicleIssue(opts: {
     tag: `vehicle-issue-${opts.vehicleId}`,
   });
 }
+
+/**
+ * Push every admin when the crew reports an arrival issue (no lockbox
+ * key / inaccessible / not ready) — a fee invoice is now waiting for
+ * approval on the stage page.
+ */
+export async function notifyArrivalIssue(opts: {
+  stageId: string;
+  address: string;
+  summary: string;
+  reportedBy?: string | null;
+}): Promise<void> {
+  if (!isPushConfigured()) return;
+  const adminUserIds = await getAdminUserIds();
+  if (adminUserIds.length === 0) return;
+  await sendPushToUsers(adminUserIds, {
+    title: `${APP_NAME} — arrival issue`,
+    body: `${opts.address}: ${opts.summary}${
+      opts.reportedBy ? ` (${opts.reportedBy})` : ""
+    } — fee invoice awaiting approval`,
+    url: `/stages/${opts.stageId}`,
+    tag: `arrival-issue-${opts.stageId}`,
+  });
+}

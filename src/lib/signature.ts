@@ -53,6 +53,19 @@ type CreateEnvelopeInput = {
     top: number;
     left: number;
   };
+  /** Fixed position for a REQUIRED initials place (client) — used for
+   *  the contract's Additional Fees acknowledgement. */
+  initialsPosition?: {
+    page: number;
+    top: number;
+    left: number;
+  };
+  /** Initials place for the secondary signer. */
+  secondaryInitialsPosition?: {
+    page: number;
+    top: number;
+    left: number;
+  };
 };
 
 export type EnvelopeResponse = {
@@ -97,6 +110,35 @@ export async function createEnvelope(
       page: input.secondaryPosition.page,
       top: input.secondaryPosition.top,
       left: input.secondaryPosition.left,
+    });
+  }
+
+  // Initials places (Additional Fees acknowledgement). Every place on
+  // an envelope must be completed by its recipient, so these are
+  // effectively required initials.
+  if (input.initialsPosition) {
+    places.push({ key: "client_initials", type: "initials", recipient_key: "client" });
+    // Explicit size: SignatureAPI anchors the BOTTOM-LEFT corner at
+    // `top` and draws the box upward; the default 60pt-tall box would
+    // paint over the fee clause the initials acknowledge.
+    fixedPositions.push({
+      place_key: "client_initials",
+      page: input.initialsPosition.page,
+      top: input.initialsPosition.top,
+      left: input.initialsPosition.left,
+      width: 90,
+      height: 24,
+    });
+  }
+  if (hasSecondary && input.secondaryInitialsPosition) {
+    places.push({ key: "secondary_initials", type: "initials", recipient_key: "secondary" });
+    fixedPositions.push({
+      place_key: "secondary_initials",
+      page: input.secondaryInitialsPosition.page,
+      top: input.secondaryInitialsPosition.top,
+      left: input.secondaryInitialsPosition.left,
+      width: 90,
+      height: 24,
     });
   }
 

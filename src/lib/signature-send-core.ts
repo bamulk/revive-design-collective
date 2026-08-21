@@ -7,11 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createEnvelope } from "./signature";
-import {
-  generateContractPdf,
-  SIGNATURE_FIELD,
-  SECONDARY_SIGNATURE_FIELD,
-} from "./contract-pdf";
+import { generateContractPdf } from "./contract-pdf";
 import {
   DEFAULT_TEMPLATE,
   type ContractTemplate,
@@ -136,7 +132,7 @@ export async function sendSignatureFromStage(
       : "";
   const hasSecondary = !!(secondaryName && secondaryEmail);
 
-  const pdfBytes = await generateContractPdf({
+  const { bytes: pdfBytes, fields } = await generateContractPdf({
     companyName: template.company_name,
     clientName: c.name,
     clientAddress: c.address,
@@ -174,11 +170,17 @@ export async function sendSignatureFromStage(
     title: `Staging Agreement — ${stage.address}`,
     documentUrl: urlData.publicUrl,
     recipient: { name: c.name, email: c.email },
-    position: SIGNATURE_FIELD,
+    // Positions come from the rendered layout (the editable terms can
+    // push the blocks down or onto page 2), so the overlays always
+    // land on the drawn lines. Initials on the Additional Fees block
+    // are required.
+    position: fields.signature,
+    initialsPosition: fields.initials,
     ...(hasSecondary
       ? {
           secondaryRecipient: { name: secondaryName, email: secondaryEmail },
-          secondaryPosition: SECONDARY_SIGNATURE_FIELD,
+          secondaryPosition: fields.secondarySignature!,
+          secondaryInitialsPosition: fields.secondaryInitials!,
         }
       : {}),
   });
@@ -192,6 +194,8 @@ export async function sendSignatureFromStage(
       signature_signer_email: c.email,
       signature_completed_at: null,
       signed_pdf_url: null,
+      // This envelope carries the initialed Additional Fees block.
+      agreement_fee_initials: true,
     })
     .eq("id", stage.id);
 }

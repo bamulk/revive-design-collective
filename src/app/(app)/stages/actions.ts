@@ -11,7 +11,6 @@ import {
   downloadSignedPdf,
   isSignatureConfigured,
 } from "@/lib/signature";
-import { generateContractPdf, SIGNATURE_FIELD } from "@/lib/contract-pdf";
 import { getContractTemplate } from "@/lib/contract-template";
 import { sendSignatureFromStage } from "@/lib/signature-send-core";
 import { generateInvoiceFor } from "@/lib/invoice-generate-core";
@@ -2307,5 +2306,299 @@ export async function deleteExtensionAction(
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Delete extension failed" };
+  }
+}
+
+// ---------------------------------------------------------------------
+// Arrival-issue fees: crew reports → fee invoice → admin approves send.
+// ---------------------------------------------------------------------
+
+export type FeeActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Crew reports an arrival issue (any team member). Inserts the pending
+ * stage_fees row FIRST (so the PDF path can carry the row's uuid —
+ * unguessable, never collides, no orphan objects), then generates the
+ * invoice PDF so the admin can review the exact document, logs
+ * activity, and pushes admins. Nothing is emailed to the client until
+ * an admin approves.
+ */
+export async function reportArrivalIssueAction(
+  stageId: string,
+  input: { reasons: string[]; note?: string | null },
+): Promise<FeeActionResult> {
+  // Guard OUTSIDE the try so a redirect() isn't swallowed as an error.
+  await requireTeamMember();
+  const { isArrivalFeeReason, arrivalFeeTotal, arrivalFeeLabels } =
+    await import("@/lib/arrival-fees");
+  const reasons = Array.from(new Set(input.reasons.filter(isArrivalFeeReason)));
+  if (reasons.length === 0) {
+    return { ok: false, error: "Pick at least one issue." };
+  }
+  const note = (input.note ?? "").trim().slice(0, 500) || null;
+
+  const supabase = await createClient();
+  let feeId: string | null = null;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user?.id ?? "")
+      .maybeSingle();
+    const reporterName = me?.full_name || me?.email || null;
+
+    const { data: stage, error: stageErr } = await supabase
+      .from("stages")
+      .select("id, address, signature_completed_at, agreement_fee_initials")
+      .eq("id", stageId)
+      .single();
+    if (stageErr || !stage) throw new Error(stageErr?.message || "Stage not found");
+    // Only claim "initialed by client" when THIS stage's agreement
+    // carried the Additional Fees block and was actually signed.
+    const initialed =
+      !!stage.signature_completed_at && !!(stage as any).agreement_fee_initials;
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("stage_fees")
+      .insert({
+        stage_id: stageId,
+        reasons,
+        note,
+        amount: arrivalFeeTotal(reasons),
+        status: "pending",
+        reported_by: user?.id ?? null,
+        reported_by_name: reporterName,
+      })
+      .select("id")
+      .single();
+    if (insErr || !inserted) throw new Error(insErr?.message || "Insert failed");
+    feeId = inserted.id as string;
+
+    const { count } = await supabase
+      .from("stage_fees")
+      .select("id", { count: "exact", head: true })
+      .eq("stage_id", stageId);
+
+    const { generateFeeInvoice } = await import("@/lib/fee-invoice-core");
+    const pdf = await generateFeeInvoice(supabase, {
+      stageId,
+      feeId,
+      reasons,
+      sequence: Math.max(1, count ?? 1),
+      note,
+      initialed,
+    });
+    const { error: upErr } = await supabase
+      .from("stage_fees")
+      .update({ invoice_number: pdf.invoiceNumber, pdf_url: pdf.url })
+      .eq("id", feeId);
+    if (upErr) throw new Error(upErr.message);
+
+    const summary = arrivalFeeLabels(reasons).join(", ");
+    await logActivity(supabase, {
+      kind: "arrival_issue",
+      stageId,
+      stageAddress: stage.address,
+      details: { reasons, note, amount: arrivalFeeTotal(reasons) },
+    });
+    try {
+      const { notifyArrivalIssue } = await import("@/lib/notify");
+      await notifyArrivalIssue({
+        stageId,
+        address: stage.address,
+        summary,
+        reportedBy: reporterName,
+      });
+    } catch (e) {
+      console.error("[arrival-issue] admin push failed:", e);
+    }
+
+    revalidatePath(`/stages/${stageId}`);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e: any) {
+    // PDF or follow-up failed after the row went in — remove the
+    // half-made row so the admin never sees a fee with no invoice.
+    if (feeId) {
+      await supabase.from("stage_fees").delete().eq("id", feeId);
+    }
+    return { ok: false, error: e?.message || "Couldn't report the issue" };
+  }
+}
+
+/**
+ * Admin approves a pending fee: CLAIMS the row (pending → sent) with a
+ * conditional update first so two admins / a double-tap / a retry can
+ * never email the client twice, then sends the invoice (BCC admins,
+ * like every invoice). If the send fails, the claim is reverted.
+ */
+export async function approveFeeInvoiceAction(
+  feeId: string,
+): Promise<FeeActionResult> {
+  await requireAdmin();
+  if (!isEmailConfigured()) {
+    return { ok: false, error: "Email isn't configured on the server." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const nowIso = new Date().toISOString();
+
+  // Atomic claim — only one caller gets the row back.
+  const { data: fee, error: claimErr } = await supabase
+    .from("stage_fees")
+    .update({
+      status: "sent",
+      approved_by: user?.id ?? null,
+      approved_at: nowIso,
+      sent_at: nowIso,
+    })
+    .eq("id", feeId)
+    .eq("status", "pending")
+    .select(
+      "id, stage_id, reasons, note, amount, pdf_url, invoice_number, stage:stages(address, signature_completed_at, agreement_fee_initials, clients(name, email))",
+    )
+    .maybeSingle();
+  if (claimErr) return { ok: false, error: claimErr.message };
+  if (!fee) {
+    return { ok: false, error: "This fee was already handled (refresh to see its status)." };
+  }
+
+  const revert = async () => {
+    await supabase
+      .from("stage_fees")
+      .update({ status: "pending", approved_by: null, approved_at: null, sent_at: null })
+      .eq("id", feeId)
+      .eq("status", "sent");
+  };
+
+  try {
+    if (!fee.pdf_url) {
+      await revert();
+      return { ok: false, error: "No invoice PDF on this fee." };
+    }
+    const stage = Array.isArray(fee.stage) ? fee.stage[0] : fee.stage;
+    const client = Array.isArray((stage as any)?.clients)
+      ? (stage as any).clients[0]
+      : (stage as any)?.clients;
+    const clientEmail = (client?.email as string | undefined) || "";
+    if (!clientEmail) {
+      await revert();
+      return { ok: false, error: "Client has no email on file." };
+    }
+
+    const { arrivalFeeLabels } = await import("@/lib/arrival-fees");
+    const labels = arrivalFeeLabels(fee.reasons as string[]);
+    const amount = Number(fee.amount ?? 0);
+    const address = (stage as any)?.address ?? "your staging";
+    const greeting = String(client?.name ?? "").split(/\s+/)[0] || "there";
+    const initialed =
+      !!(stage as any)?.signature_completed_at &&
+      !!(stage as any)?.agreement_fee_initials;
+    const basis = initialed
+      ? "Per the Additional Fees section of your staging agreement (initialed)"
+      : "Per our staging terms";
+
+    const { data: admins } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("role", "admin");
+    const bcc = (admins ?? [])
+      .map((a: any) => a.email as string | null)
+      .filter((e): e is string => !!e && e.toLowerCase() !== clientEmail.toLowerCase())
+      .slice(0, 50);
+
+    const subject = `Additional fee invoice for ${address} — Stone Home Staging`;
+    const reasonLines = labels.map((l) => `- ${l}`).join("\n");
+    const text =
+      `Hi ${greeting},\n\n` +
+      `${basis}, a fee applies for ${address}:\n\n${reasonLines}\n\n` +
+      `Total: $${amount.toFixed(2)}\n\nInvoice PDF: ${fee.pdf_url}\n\n` +
+      `Payable by check, cash, or Zelle — details on the invoice. Reach out with any questions.\n\nStone Home Staging`;
+    const html = `
+      <div style="font-family: -apple-system, system-ui, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto;">
+        <p>Hi ${escapeHtml(greeting)},</p>
+        <p>${escapeHtml(basis)}, a fee applies for <strong>${escapeHtml(address)}</strong>:</p>
+        <ul>${labels.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+        <p><strong>Total: $${escapeHtml(amount.toFixed(2))}</strong></p>
+        <p><a href="${escapeHtml(fee.pdf_url)}" style="display:inline-block; padding:10px 18px; background:#a9761e; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none;">View invoice PDF</a></p>
+        <p style="color:#475569; font-size:14px;">Payable by check, cash, or Zelle — details on the invoice. Reach out with any questions.</p>
+        <p style="color:#475569; font-size:14px;">— Stone Home Staging</p>
+      </div>`;
+
+    await sendEmail({
+      to: clientEmail,
+      ...(bcc.length > 0 ? { bcc } : {}),
+      subject,
+      text,
+      html,
+    });
+
+    revalidatePath(`/stages/${fee.stage_id}`);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e: any) {
+    await revert();
+    return { ok: false, error: e?.message || "Approve failed" };
+  }
+}
+
+/** Admin dismisses a reported fee (no invoice goes out). */
+export async function dismissFeeAction(feeId: string): Promise<FeeActionResult> {
+  await requireAdmin();
+  try {
+    const supabase = await createClient();
+    const { data: fee, error } = await supabase
+      .from("stage_fees")
+      .update({ status: "dismissed" })
+      .eq("id", feeId)
+      .eq("status", "pending")
+      .select("stage_id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!fee) {
+      return { ok: false, error: "This fee was already handled (refresh to see its status)." };
+    }
+    revalidatePath(`/stages/${fee.stage_id}`);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Dismiss failed" };
+  }
+}
+
+/** Admin marks a sent fee invoice paid (sent → paid) or unpaid (paid → sent). */
+export async function setFeePaidAction(
+  feeId: string,
+  paid: boolean,
+): Promise<FeeActionResult> {
+  await requireAdmin();
+  try {
+    const supabase = await createClient();
+    const { data: fee, error } = await supabase
+      .from("stage_fees")
+      .update({
+        status: paid ? "paid" : "sent",
+        paid_at: paid ? new Date().toISOString() : null,
+      })
+      .eq("id", feeId)
+      .eq("status", paid ? "sent" : "paid")
+      .select("stage_id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!fee) {
+      return { ok: false, error: "Nothing to update (refresh to see the current status)." };
+    }
+    revalidatePath(`/stages/${fee.stage_id}`);
+    revalidatePath("/");
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Update failed" };
   }
 }
