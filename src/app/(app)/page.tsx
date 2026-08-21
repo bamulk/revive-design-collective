@@ -21,6 +21,7 @@ import CurrentlyStagedSection from "./_CurrentlyStagedSection";
 import PendingListingsSection from "./_PendingListingsSection";
 import ContingencyRemovalsSection from "./_ContingencyRemovalsSection";
 import ActionItemsSection from "./_ActionItemsSection";
+import MarketDomSection from "./_MarketDomSection";
 import NeedPicturesSection from "./_NeedPicturesSection";
 import { after } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
@@ -556,6 +557,12 @@ export default async function DashboardPage() {
           removal date, soonest first. Hides itself when none are set. */}
       <Suspense fallback={null}>
         <ContingencyRemovalsSection />
+      </Suspense>
+
+      {/* Sacramento market — days-to-pending trend (Zillow, cached
+          24h) with our staged homes overlaid. Hides on fetch failure. */}
+      <Suspense fallback={null}>
+        <MarketDomSection />
       </Suspense>
 
       {/* Outstanding invoices — streams in via its own server
