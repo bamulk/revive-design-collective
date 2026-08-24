@@ -134,26 +134,8 @@ export async function generateInvoicePdf(
     });
   };
 
-  // Header: company name + business address (left), big "INVOICE" +
-  // number/dates (right). The address is drawn at fixed offsets from
-  // the header top so it fills the left side of the rows the right
-  // column already occupies — the shared y cursor keeps flowing down
-  // the right column untouched.
-  const COMPANY_ADDRESS_LINES = [
-    "7819 Mount Diablo Ct",
-    "Fair Oaks, CA 95628",
-  ];
+  // Header: company name (left), big "INVOICE" + number/dates (right).
   drawText(company, { size: 20, font: bold });
-  const headerTop = y;
-  COMPANY_ADDRESS_LINES.forEach((line, i) => {
-    page.drawText(line, {
-      x: margin,
-      y: headerTop - 22 - i * 14,
-      size: 10,
-      font,
-      color: muted,
-    });
-  });
   page.drawText("INVOICE", {
     x: margin + width - 110,
     y,
