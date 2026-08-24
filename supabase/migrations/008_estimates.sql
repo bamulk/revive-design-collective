@@ -19,7 +19,11 @@ create unique index if not exists stages_estimate_token_uniq
   where estimate_token is not null;
 
 -- Anonymous-friendly view used by the public accept page.
-create or replace view public.estimate_public as
+-- Drop-then-create (not CREATE OR REPLACE) so re-running the full setup
+-- on a DB where migration 054 already widened this view doesn't fail with
+-- "cannot drop columns from view".
+drop view if exists public.estimate_public;
+create view public.estimate_public as
   select
     s.id,
     s.address,

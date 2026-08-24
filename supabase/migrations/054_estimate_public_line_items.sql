@@ -1,9 +1,11 @@
 -- The public estimate page reads escrow / travel_fee / line_items, but the
 -- estimate_public view never exposed them — so custom line items didn't show
--- and the displayed total was inflated by escrow + travel. Append the three
--- columns (CREATE OR REPLACE requires existing columns stay first, in order).
--- (Applied to the live DB via MCP as 054.)
-create or replace view public.estimate_public as
+-- and the displayed total was inflated by escrow + travel. Add the three
+-- columns. Drop-then-create (not CREATE OR REPLACE) so this is re-runnable
+-- regardless of the view's current column set; re-grants afterward since a
+-- drop clears grants.
+drop view if exists public.estimate_public;
+create view public.estimate_public as
   select
     s.id,
     s.address,
@@ -24,5 +26,7 @@ create or replace view public.estimate_public as
   from stages s
   left join clients c on c.id = s.client_id;
 
--- Preserve the security_invoker setting from migration 016.
+-- Re-grant (the drop above cleared it) + preserve the security_invoker
+-- setting from migration 016.
+grant select on public.estimate_public to anon, authenticated;
 alter view public.estimate_public set (security_invoker = on);
