@@ -22,6 +22,7 @@ import PackagePicker from "@/components/PackagePicker";
 import StagePhotos, { StagePhotosFallback } from "./_StagePhotos";
 import { StatusBadge } from "@/components/ui";
 import SignatureSendButton from "@/components/SignatureSendButton";
+import SignatureSyncButton from "@/components/SignatureSyncButton";
 import ChangeTo90Button from "@/components/ChangeTo90Button";
 import NewAgreementButton from "@/components/NewAgreementButton";
 import DeleteStageButton from "@/components/DeleteStageButton";
@@ -735,6 +736,10 @@ export default async function StageDetailPage({
               </a>
             )}
             <div className="flex flex-col gap-2">
+              {/* Pull the latest status straight from SignatureAPI (and
+                  mark signed manually) — a fallback for when the webhook
+                  doesn't land, e.g. right after switching to a live key. */}
+              <SignatureSyncButton stageId={id} isAdmin />
               <SignatureSendButton stageId={id} alreadySent />
               {/* Amount changed? Send a fresh agreement at the new
                   figure instead of re-delivering the stale envelope. */}
