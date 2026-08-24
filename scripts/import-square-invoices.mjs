@@ -7,7 +7,7 @@
  *   node scripts/import-square-invoices.mjs <csv> --parse-only — parse + map only,
  *          no DB connection
  *
- * Requires migration 036_stage_square_invoice.sql to be applied first
+ * Requires migration 063_stage_square_invoice.sql to be applied first
  * (adds stages.square_invoice_number, used for idempotent re-runs).
  *
  * Getting the CSV out of Square:
@@ -349,7 +349,7 @@ async function main() {
     .not("square_invoice_number", "is", null);
   if (sErr) {
     console.error(
-      "stages query failed (did you run migration 036?): " + sErr.message,
+      "stages query failed (did you run migration 063?): " + sErr.message,
     );
     process.exit(1);
   }

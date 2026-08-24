@@ -2022,7 +2022,7 @@ export async function resendExtensionInvoiceAction(
     const { data: ext, error: extErr } = await supabase
       .from("stage_extensions")
       .select(
-        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, bill_to, line_items, stage_date, destage_date, accept_online_payment, clients(name, email))",
+        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, bill_to, line_items, stage_date, destage_date, clients(name, email))",
       )
       .eq("id", extensionId)
       .single();
@@ -2514,22 +2514,22 @@ export async function approveFeeInvoiceAction(
       .filter((e): e is string => !!e && e.toLowerCase() !== clientEmail.toLowerCase())
       .slice(0, 50);
 
-    const subject = `Additional fee invoice for ${address} — Stone Home Staging`;
+    const subject = `Additional fee invoice for ${address} — Revive Design Collective`;
     const reasonLines = labels.map((l) => `- ${l}`).join("\n");
     const text =
       `Hi ${greeting},\n\n` +
       `${basis}, a fee applies for ${address}:\n\n${reasonLines}\n\n` +
       `Total: $${amount.toFixed(2)}\n\nInvoice PDF: ${fee.pdf_url}\n\n` +
-      `Payable by check, cash, or Zelle — details on the invoice. Reach out with any questions.\n\nStone Home Staging`;
+      `Payable by check, cash, or Zelle — details on the invoice. Reach out with any questions.\n\nRevive Design Collective`;
     const html = `
       <div style="font-family: -apple-system, system-ui, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto;">
         <p>Hi ${escapeHtml(greeting)},</p>
         <p>${escapeHtml(basis)}, a fee applies for <strong>${escapeHtml(address)}</strong>:</p>
         <ul>${labels.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
         <p><strong>Total: $${escapeHtml(amount.toFixed(2))}</strong></p>
-        <p><a href="${escapeHtml(fee.pdf_url)}" style="display:inline-block; padding:10px 18px; background:#a9761e; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none;">View invoice PDF</a></p>
+        <p><a href="${escapeHtml(fee.pdf_url)}" style="display:inline-block; padding:10px 18px; background:#7c8b76; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none;">View invoice PDF</a></p>
         <p style="color:#475569; font-size:14px;">Payable by check, cash, or Zelle — details on the invoice. Reach out with any questions.</p>
-        <p style="color:#475569; font-size:14px;">— Stone Home Staging</p>
+        <p style="color:#475569; font-size:14px;">— Revive Design Collective</p>
       </div>`;
 
     await sendEmail({

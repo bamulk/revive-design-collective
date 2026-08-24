@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
   }
 
   const csv = rows.map((r) => r.map(esc).join(",")).join("\n") + "\n";
-  const filename = `stone-home-staging-expenses-${year}.csv`;
+  const filename = `revive-design-collective-expenses-${year}.csv`;
 
   return new NextResponse(csv, {
     status: 200,

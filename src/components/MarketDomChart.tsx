@@ -94,7 +94,7 @@ export default function MarketDomChart({
         </span>
         {oursPts.length > 0 && (
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#a9761e] dark:bg-[#d4a24a]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#7c8b76] dark:bg-[#9dae95]" />
             Our staged homes — staged → pending
           </span>
         )}
@@ -186,7 +186,7 @@ export default function MarketDomChart({
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
-              className="stroke-[#a9761e] dark:stroke-[#d4a24a]"
+              className="stroke-[#7c8b76] dark:stroke-[#9dae95]"
             />
           )}
           {oursPts.map((p) => (
@@ -195,7 +195,7 @@ export default function MarketDomChart({
               cx={x(p.i)}
               cy={y(p.days)}
               r={3}
-              className="fill-[#a9761e] dark:fill-[#d4a24a]"
+              className="fill-[#7c8b76] dark:fill-[#9dae95]"
             />
           ))}
 
@@ -214,7 +214,7 @@ export default function MarketDomChart({
               cx={x(hoverIdx!)}
               cy={y(hoverOurs)}
               r={4}
-              className="fill-[#a9761e] dark:fill-[#d4a24a] stroke-white dark:stroke-slate-900"
+              className="fill-[#7c8b76] dark:fill-[#9dae95] stroke-white dark:stroke-slate-900"
               strokeWidth={2}
             />
           )}

@@ -7,7 +7,7 @@ import {
   type ArrivalFeeReason,
 } from "@/lib/arrival-fees";
 
-const APP_NAME = "Stone Home Staging";
+const APP_NAME = "Revive Design Collective";
 
 /**
  * Build + upload the PDF for one arrival-fee report. Takes whatever
@@ -72,11 +72,11 @@ export async function generateFeeInvoice(
     total: amount,
     paymentTerms: "Payment due on receipt.",
     paymentInstructions:
-      "Payable by check, cash, or Zelle to Stone Home Staging.",
+      "Payable by check, cash, or Zelle to Revive Design Collective.",
     terms: [
       opts.initialed
         ? "Additional fee per the Additional Fees section of the staging agreement (initialed by client)."
-        : "Additional fee per Stone Home Staging terms (access / readiness fee).",
+        : "Additional fee per Revive Design Collective terms (access / readiness fee).",
       ...(opts.note?.trim() ? [`Crew note: ${opts.note.trim()}`] : []),
     ],
   });

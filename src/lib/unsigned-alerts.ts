@@ -101,7 +101,7 @@ export async function runUnsignedContractCheck(): Promise<UnsignedAlertResult> {
       .join("\n") +
     `\n\nUnsigned stages never get invoiced (invoicing is gated on the ` +
     `signature), so chase the signature or handle it manually before ` +
-    `the crew goes out.\n\n— Stone Home Staging`;
+    `the crew goes out.\n\n— Revive Design Collective`;
 
   const html = `
     <div style="font-family: -apple-system, system-ui, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto;">
@@ -130,7 +130,7 @@ export async function runUnsignedContractCheck(): Promise<UnsignedAlertResult> {
         signature), so chase the signature or handle it manually before
         the crew goes out.
       </p>
-      <p style="color:#475569; font-size: 14px;">— Stone Home Staging</p>
+      <p style="color:#475569; font-size: 14px;">— Revive Design Collective</p>
     </div>
   `;
 

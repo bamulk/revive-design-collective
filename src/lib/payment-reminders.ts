@@ -137,8 +137,8 @@ function digestEmail(opts: {
   // must not share an identical subject (they'd thread in Gmail).
   const subject =
     items.length === 1
-      ? `Payment reminder: ${items[0].label.toLowerCase()} for ${items[0].address} — Stone Home Staging`
-      : `Payment reminder: ${items[0].address} + ${items.length - 1} more — Stone Home Staging`;
+      ? `Payment reminder: ${items[0].label.toLowerCase()} for ${items[0].address} — Revive Design Collective`
+      : `Payment reminder: ${items[0].address} + ${items.length - 1} more — Revive Design Collective`;
 
   const intro =
     items.length === 1
@@ -147,16 +147,13 @@ function digestEmail(opts: {
 
   const textItems = items
     .map((i) => {
-      const pay = i.payLink
-        ? `\n  Pay online (3% card fee applies): ${i.payLink}`
-        : "";
-      return `- ${i.label} — ${i.address}: $${i.balance.toFixed(2)}\n  Invoice PDF: ${i.pdfUrl}${pay}`;
+      return `- ${i.label} — ${i.address}: $${i.balance.toFixed(2)}\n  Invoice PDF: ${i.pdfUrl}`;
     })
     .join("\n");
   const text =
     `Hi ${greeting},\n\n${intro}\n\n${textItems}\n\n` +
     `Payment by check / cash / Zelle / Venmo — details on each invoice.` +
-    `\n\nIf you've already sent payment, please disregard this — and thank you!\n\nStone Home Staging`;
+    `\n\nIf you've already sent payment, please disregard this — and thank you!\n\nRevive Design Collective`;
 
   const htmlItems = items
     .map(
@@ -167,14 +164,7 @@ function digestEmail(opts: {
         <div style="margin:6px 0 10px;">Balance due: <strong>$${escapeHtml(
           i.balance.toFixed(2),
         )}</strong></div>
-        <a href="${i.pdfUrl}" style="display:inline-block; padding:9px 16px; background:#a9761e; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none; font-size:14px;">View invoice PDF</a>
-        ${
-          i.payLink && i.onlineTotal
-            ? `&nbsp;&nbsp;<a href="${i.payLink}" style="display:inline-block; padding:9px 16px; background:#1b1b1b; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none; font-size:14px;">Pay $${escapeHtml(
-                i.onlineTotal.toFixed(2),
-              )} online</a>`
-            : ""
-        }
+        <a href="${i.pdfUrl}" style="display:inline-block; padding:9px 16px; background:#7c8b76; border-radius:8px; color:#ffffff; font-weight:600; text-decoration:none; font-size:14px;">View invoice PDF</a>
       </div>`,
     )
     .join("");
@@ -185,13 +175,12 @@ function digestEmail(opts: {
       <p>${escapeHtml(intro)}</p>
       ${htmlItems}
       <p style="color:#475569; font-size: 14px;">
-        Pay online with a card where offered (a 3% processing fee applies),
-        or by check / cash / Zelle / Venmo — details on each invoice.
+        Payable by check / cash / Zelle / Venmo — details on each invoice.
       </p>
       <p style="color:#475569; font-size: 14px;">
         If you&rsquo;ve already sent payment, please disregard this — and thank you!
       </p>
-      <p style="color:#475569; font-size: 14px;">— Stone Home Staging</p>
+      <p style="color:#475569; font-size: 14px;">— Revive Design Collective</p>
     </div>
   `;
   return { subject, text, html };
@@ -230,7 +219,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: stages, error: stagesErr } = await admin
     .from("stages")
     .select(
-      "id, address, amount, status, escrow, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, accept_online_payment, stripe_payment_link_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
+      "id, address, amount, status, escrow, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -330,12 +319,6 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     const c = clientOf(s)!;
     const balance = Number(s.amount ?? 0) - (paidByStage.get(s.id) ?? 0);
     if (balance <= 0) continue; // fully covered; trigger just hasn't stamped
-    // The Stripe link charges the FULL amount — only offer it when
-    // nothing has been paid yet, so the button never overcharges.
-    const canPayOnline =
-      !!s.accept_online_payment &&
-      !!s.stripe_payment_link_url &&
-      (paidByStage.get(s.id) ?? 0) === 0;
     addItem(c.email!, c.name, {
       kind: "stage",
       id: s.id,
@@ -343,8 +326,8 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
       label: "Invoice",
       balance,
       pdfUrl: s.invoice_pdf_url,
-      payLink: canPayOnline ? s.stripe_payment_link_url : null,
-      onlineTotal: canPayOnline ? Math.round(balance * 1.03 * 100) / 100 : null,
+      payLink: null,
+      onlineTotal: null,
       dueSince: new Date(
         s.invoice_reminder_last_at ?? s.invoice_sent_at,
       ).getTime(),

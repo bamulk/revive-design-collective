@@ -36,7 +36,7 @@ export async function sendPasswordResetAction(
     if (!profile) return { ok: true };
 
     const baseUrl = (
-      process.env.NEXT_PUBLIC_APP_URL || "https://app.stonehomestaging.com"
+      process.env.NEXT_PUBLIC_APP_URL || "https://app.revivedesigncollective.com"
     ).replace(/\/$/, "");
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
@@ -52,24 +52,24 @@ export async function sendPasswordResetAction(
     )}&type=recovery`;
 
     const firstName = (profile.full_name || "there").split(" ")[0] || "there";
-    const subject = "Reset your Stone Home Staging password";
+    const subject = "Reset your Revive Design Collective password";
     const text = `Hi ${firstName},
 
-Someone (hopefully you) asked to reset your Stone Home Staging password. Click the link below to choose a new one:
+Someone (hopefully you) asked to reset your Revive Design Collective password. Click the link below to choose a new one:
 ${verifyUrl}
 
 If you didn't request this, you can safely ignore this email — your password is unchanged.
 
-— Stone Home Staging`;
+— Revive Design Collective`;
     const html = `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:560px; margin:0 auto; padding:24px;">
   <p>Hi ${firstName},</p>
-  <p>Someone (hopefully you) asked to reset your <strong>Stone Home Staging</strong> password. Click the button below to choose a new one:</p>
+  <p>Someone (hopefully you) asked to reset your <strong>Revive Design Collective</strong> password. Click the button below to choose a new one:</p>
   ${emailButton({ href: verifyUrl, label: "Choose a new password" })}
   <p style="font-size:13px; color:#64748b;">If the button doesn't work, copy and paste this link:<br/><span style="word-break:break-all;">${verifyUrl}</span></p>
   <p style="font-size:13px; color:#64748b;">If you didn't request this, ignore this email — your password is unchanged.</p>
   <hr style="border:none; border-top:1px solid #e2e8f0; margin:24px 0;" />
-  <p style="font-size:12px; color:#94a3b8;">Stone Home Staging</p>
+  <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
 </body></html>`;
 
     await sendEmail({ to: email, subject, text, html });

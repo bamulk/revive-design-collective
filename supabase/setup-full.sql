@@ -1,5 +1,5 @@
 -- Revive Design Collective — full database setup
--- Generated from schema.sql + migrations 001-035. Run once in the Supabase SQL editor of a FRESH project.
+-- Generated from schema.sql + all migrations. Run once in the Supabase SQL editor of a FRESH project.
 
 -- ============================================================
 -- schema.sql
@@ -1722,7 +1722,134 @@ create or replace view public.estimate_public as
 alter view public.estimate_public set (security_invoker = on);
 
 -- ============================================================
--- 036_stage_square_invoice.sql
+-- 055_stage_photographer_at.sql
+-- ============================================================
+-- Photographer arrival deadline for a stage — the staging work must be
+-- finished before this moment. Admins set it; all team members see it
+-- (with a countdown) on the stage page.
+-- (Applied to the live DB via MCP as 055; idempotent.)
+alter table public.stages
+  add column if not exists photographer_at timestamptz;
+
+-- ============================================================
+-- 056_payment_reminders.sql
+-- ============================================================
+-- Automated unpaid-invoice email reminders (stage invoices + extension
+-- invoices): first reminder 5 days after the invoice email went out,
+-- then every 3 days while unpaid.
+-- (Applied to the live DB via MCP as 056; idempotent.)
+
+-- Client-level opt-out — escrow payers don't need nagging.
+alter table public.clients
+  add column if not exists payment_reminders boolean not null default true;
+
+-- Reminder bookkeeping so the cron knows when each invoice was last
+-- nagged (and how many times).
+alter table public.stages
+  add column if not exists invoice_reminder_last_at timestamptz,
+  add column if not exists invoice_reminder_count integer not null default 0;
+
+alter table public.stage_extensions
+  add column if not exists reminder_last_at timestamptz,
+  add column if not exists reminder_count integer not null default 0;
+
+-- ============================================================
+-- 057_stage_contingency_removal.sql
+-- ============================================================
+-- Admin-entered date when the buyer's contingencies are removed on a
+-- stage's sale — surfaced on the stage page and the dashboard's
+-- "Contingency removals" section.
+ALTER TABLE stages
+  ADD COLUMN IF NOT EXISTS contingency_removal_date date;
+
+-- ============================================================
+-- 058_stage_unsigned_alert.sql
+-- ============================================================
+-- One-shot stamp so the day-before "agreement not signed" admin alert
+-- never re-sends for the same stage.
+ALTER TABLE stages
+  ADD COLUMN IF NOT EXISTS unsigned_alert_sent_at timestamptz;
+
+-- ============================================================
+-- 059_profiles_no_default_team_role.sql
+-- ============================================================
+-- A portal magic link created an auth user whose trigger-generated
+-- profile defaulted to role 'stager' — a CLIENT landed in the staff
+-- app with stager access. Two-part fix:
+--
+-- 1) profiles.role: nullable, no default. A profile without an
+--    explicitly granted role has NO team access (the app layout and
+--    is_internal_user() both require a team role).
+ALTER TABLE profiles ALTER COLUMN role DROP NOT NULL;
+ALTER TABLE profiles ALTER COLUMN role DROP DEFAULT;
+
+-- 2) Only create profiles for invited team members. Employee invites
+--    carry full_name in the user metadata; portal-created client
+--    users don't, so they get no profiles row at all.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+begin
+  if new.raw_user_meta_data ? 'full_name' then
+    insert into public.profiles (id, email, full_name)
+    values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name',''));
+  end if;
+  return new;
+end; $$;
+
+-- ============================================================
+-- 060_stage_bill_to.sql
+-- ============================================================
+-- Per-stage billing entity (e.g. the LLC a flipper buys under) —
+-- printed as the invoice's Bill To name with the client as c/o.
+ALTER TABLE stages ADD COLUMN IF NOT EXISTS bill_to text;
+
+-- ============================================================
+-- 061_stage_fees.sql
+-- ============================================================
+-- Extra charges reported by the crew on arrival (no lockbox key, house
+-- inaccessible, house not ready). Each report becomes a fee invoice
+-- that an admin approves before it's emailed to the client.
+CREATE TABLE IF NOT EXISTS stage_fees (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  stage_id uuid NOT NULL REFERENCES stages(id) ON DELETE CASCADE,
+  reasons text[] NOT NULL,
+  note text,
+  amount numeric(10,2) NOT NULL,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'sent', 'paid', 'dismissed')),
+  reported_by uuid REFERENCES profiles(id) ON DELETE SET NULL,
+  reported_by_name text,
+  reported_at timestamptz NOT NULL DEFAULT now(),
+  approved_by uuid REFERENCES profiles(id) ON DELETE SET NULL,
+  approved_at timestamptz,
+  invoice_number text,
+  pdf_url text,
+  sent_at timestamptz,
+  paid_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS stage_fees_stage_id_idx ON stage_fees(stage_id);
+CREATE INDEX IF NOT EXISTS stage_fees_status_idx ON stage_fees(status);
+ALTER TABLE stage_fees ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "stage_fees internal" ON stage_fees;
+CREATE POLICY "stage_fees internal" ON stage_fees
+  FOR ALL USING (is_internal_user()) WITH CHECK (is_internal_user());
+
+-- ============================================================
+-- 062_stage_agreement_fee_initials.sql
+-- ============================================================
+-- True once an agreement envelope carrying the initialed "Additional
+-- Fees" block has been sent for this stage. Fee invoices/emails only
+-- cite "initialed by client" when this is set AND the agreement was
+-- signed; older agreements predate the clause.
+ALTER TABLE stages ADD COLUMN IF NOT EXISTS agreement_fee_initials boolean NOT NULL DEFAULT false;
+
+-- ============================================================
+-- 063_stage_square_invoice.sql
 -- ============================================================
 -- Traceability + idempotency for the one-time Square Invoicing import.
 -- Each stage created from a Square invoice records its originating invoice
