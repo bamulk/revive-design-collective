@@ -6,6 +6,7 @@ import {
   PACKAGES,
   ADD_ONS,
   computePrice,
+  PRICING_CATALOG_ENABLED,
   type SelectedAddOn,
 } from "@/lib/pricing";
 
@@ -64,7 +65,9 @@ export default function PackagePicker({
   // amount the admin types in. Default it on when the stage was saved
   // without a package_key but still has an amount.
   const [customMode, setCustomMode] = useState<boolean>(
-    !defaultPackageKey && (defaultCustomAmount ?? 0) > 0,
+    // When the catalog is disabled, always price manually.
+    !PRICING_CATALOG_ENABLED ||
+      (!defaultPackageKey && (defaultCustomAmount ?? 0) > 0),
   );
   const [customAmount, setCustomAmount] = useState<number>(
     defaultCustomAmount ?? 0,
@@ -144,39 +147,41 @@ export default function PackagePicker({
         value={customMode ? String(customAmount || 0) : ""}
       />
 
-      {/* Mode toggle */}
-      <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
-        <button
-          type="button"
-          onClick={() => setCustomMode(false)}
-          className={`px-3 py-1.5 transition ${
-            !customMode
-              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-              : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          }`}
-          aria-pressed={!customMode}
-        >
-          Package
-        </button>
-        <button
-          type="button"
-          onClick={() => setCustomMode(true)}
-          className={`px-3 py-1.5 transition border-l border-slate-200 dark:border-slate-700 ${
-            customMode
-              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-              : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          }`}
-          aria-pressed={customMode}
-        >
-          Custom price
-        </button>
-      </div>
+      {/* Mode toggle — only when the package catalog is enabled. */}
+      {PRICING_CATALOG_ENABLED && (
+        <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => setCustomMode(false)}
+            className={`px-3 py-1.5 transition ${
+              !customMode
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+            aria-pressed={!customMode}
+          >
+            Package
+          </button>
+          <button
+            type="button"
+            onClick={() => setCustomMode(true)}
+            className={`px-3 py-1.5 transition border-l border-slate-200 dark:border-slate-700 ${
+              customMode
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+            aria-pressed={customMode}
+          >
+            Custom price
+          </button>
+        </div>
+      )}
 
 
       {customMode ? (
         <div>
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
-            Custom stage price (USD) *
+            {PRICING_CATALOG_ENABLED ? "Custom stage price (USD) *" : "Amount (USD) *"}
           </label>
           <div className="relative max-w-[220px]">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
@@ -194,9 +199,9 @@ export default function PackagePicker({
             />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Use when the job doesn't fit a standard package — the invoice
-            will show a single &ldquo;Home staging&rdquo; line item for this
-            amount.
+            {PRICING_CATALOG_ENABLED
+              ? "Use when the job doesn't fit a standard package — the invoice will show a single “Home staging” line item for this amount."
+              : "The invoice will show a single “Design services” line item for this amount."}
           </p>
         </div>
       ) : (
@@ -211,8 +216,9 @@ export default function PackagePicker({
       )}
 
       {/* Slot for custom line items — after the pricing inputs, above
-          the subtotal box, mounted continuously across mode flips. */}
-      {beforeSummary}
+          the subtotal box, mounted continuously across mode flips.
+          Hidden while the catalog is off (manual amount only). */}
+      {PRICING_CATALOG_ENABLED && beforeSummary}
 
       {/* Subtotal box — hoisted out of the mode branches so the slot
           above renders between the inputs and this box in both modes. */}

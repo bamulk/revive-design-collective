@@ -19,6 +19,16 @@ export type AddOn = {
   price: number;
 };
 
+/**
+ * Temporary switch. When false, the app hides the package catalog,
+ * add-ons, escrow, travel fee, and custom-line-item UI and prices every
+ * job with a single manual "Amount" field (stored as a custom price).
+ * Flip to true to restore the full pricing catalog once Revive's own
+ * package pricing is set. The catalog data below is kept intact so
+ * turning it back on is a one-line change.
+ */
+export const PRICING_CATALOG_ENABLED = false;
+
 export const PACKAGES: Package[] = [
   { key: "lt1500_1ls", label: "Up to 1,500 sq ft — 1 living/dining space", sqftMin: null, sqftMax: 1500, livingSpaces: 1, price: 1800, durationDays: 60 },
   { key: "lt1500_2ls", label: "Up to 1,500 sq ft — 2 living/dining spaces", sqftMin: null, sqftMax: 1500, livingSpaces: 2, price: 2100, durationDays: 60 },

@@ -5,6 +5,7 @@ import {
   ESCROW_FEE,
   TRAVEL_FEES,
   normalizeTravelFee,
+  PRICING_CATALOG_ENABLED,
   type TravelFee,
 } from "@/lib/pricing";
 
@@ -29,6 +30,17 @@ export default function ExtraFeesFields({
   const [travelFee, setTravelFee] = useState<TravelFee>(
     normalizeTravelFee(defaultTravelFee),
   );
+
+  // Manual-amount-only mode: no escrow/travel UI. Emit the hidden fields
+  // at their neutral defaults so the server's pricing parser is unaffected.
+  if (!PRICING_CATALOG_ENABLED) {
+    return (
+      <>
+        <input type="hidden" name="escrow" value="" />
+        <input type="hidden" name="travel_fee" value="0" />
+      </>
+    );
+  }
 
   return (
     <div className="space-y-3">
