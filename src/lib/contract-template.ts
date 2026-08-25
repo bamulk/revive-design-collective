@@ -14,35 +14,60 @@ export type ContractTemplate = {
  */
 export const DEFAULT_TEMPLATE: ContractTemplate = {
   company_name: "Revive Design Collective",
-  intro: null,
+  intro:
+    "The following rooms will be staged: Living Room, Dining Room, Kitchen, Primary Bedroom, and Bathrooms. In addition to what is outlined above, rooms will include artwork, mirrors, centerpieces, plants, throw pillows, and room accessories.",
   terms: [
     {
-      title: "Services",
-      body: "Stager will provide home staging services at the Property, including furniture and decor selection, placement, and removal on the destage date.",
+      title: "Staging Fee & Term",
+      body: "The staging fee is a flat fee, determined at the time of the agreement. It includes two months of staging, commencing on the date of install. The total fee is due upon installation of furnishings. If furnishings are needed beyond the initial term, a monthly fee of $1,000 will be charged.",
     },
     {
-      title: "Fee",
-      body: "Client agrees to pay the total fee shown above. An invoice will be issued on the stage date. Payment is due on the day of staging unless otherwise agreed in writing.",
+      title: "Payment",
+      body: "Payment is due upon installation. Please make checks payable to Revive Design Collective — Revive Design Co., 220 Sandburg Dr, Sacramento, CA 95819. Zelle: 530-251-3898 (Williams Real Estate Services).",
     },
     {
-      title: "Access",
-      body: "Client will provide Stager reasonable access to the Property on the stage and destage dates. Fees for a missing lockbox key, an inaccessible home, or a home not ready for staging are set out in the Additional Fees section, which Client initials to acknowledge.",
+      title: "De-Staging",
+      body: "Furnishings will be left in place until contingencies are removed, the realtor/client approves removal, or the agreement has expired. A 72-hour notice is required for de-staging the home.",
     },
     {
-      title: "Care of Property",
-      body: "Stager will exercise reasonable care. Stager is not responsible for pre-existing conditions or damage caused by third parties.",
+      title: "Furnishing Selection",
+      body: "Client agrees the selection of furnishings is at the sole discretion of the stager.",
     },
     {
-      title: "Inventory",
-      body: "All furniture and decor brought to the Property remain the property of Stager and will be removed on the destage date. Client agrees not to move, sell, or otherwise disturb the inventory.",
+      title: "Ownership of Furnishings",
+      body: "Client agrees that the furnishings are owned and leased by Revive Design Collective for display purposes only. While on the property, furnishings are to remain staged and are not to be used in any other fashion.",
+    },
+    {
+      title: "Care of Furnishings",
+      body: "Client agrees to exercise all due care in keeping, caring for, and preserving the furnishings. Cleaning fee starts at $600.",
+    },
+    {
+      title: "Loss or Damage",
+      body: "Client shall remain responsible for all loss or damage to the furnishings while they are on the property, up to and including actual replacement value for each missing or damaged item.",
+    },
+    {
+      title: "Publicity",
+      body: "Client agrees that photographs from the listing may be used for publicity on Revive Design Collective social media sites, website, and other marketing materials.",
+    },
+    {
+      title: "No Pets",
+      body: "No pets. For occupied staging, a cleaning fee will be charged if the furniture is returned with pet hair, dirt, or any stains. Please cover all staging furniture with linens.",
     },
     {
       title: "Cancellation",
-      body: "Cancellations requested less than 72 hours before the stage date may incur a charge of up to 50% of the total fee.",
+      body: "We book 2-3 weeks in advance and your stage is part of a chain of events. If you decide to cancel, there will be a $1,000 fee.",
     },
     {
-      title: "Entire Agreement",
-      body: "This document is the full agreement between the parties regarding these services.",
+      title: "Home Readiness",
+      body: "The home must be clean prior to staging.",
+    },
+    {
+      title: "Property Access",
+      body: "Only Revive Design Collective is allowed on the property during staging and de-staging. The presence of contractors slows down the process and workflow of our team.",
+    },
+    {
+      title: "Lockbox & Hours",
+      body: "Due to real estate timelines, a contractor lockbox is required on site for the move-in and move-out. We are unable to meet realtors at the property at a specific time. Please note that we start as early as 7am and do not work past 1pm.",
     },
   ],
 };
