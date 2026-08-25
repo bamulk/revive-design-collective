@@ -2,7 +2,7 @@ import { PlusCircle, CalendarDays, Map as MapIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
-import { getBarnCoords, haversineMiles } from "@/lib/distance";
+import { getWarehouseCoords, haversineMiles } from "@/lib/distance";
 import GroupsView, { type GroupStage } from "./GroupsView";
 import { THUMB } from "@/lib/photo-urls";
 import { signThumbsCached } from "@/lib/sign-thumbs";
@@ -91,15 +91,15 @@ export default async function StagesGroupsPage() {
     taskCounts.set(t.stage_id, { done: t.done, total: t.total });
   }
 
-  // Barn coords once — cached for the whole render. Used to compute
-  // miles-from-barn on each Upcoming card.
-  const barn = await getBarnCoords();
+  // Warehouse coords once — cached for the whole render. Used to compute
+  // miles-from-warehouse on each Upcoming card.
+  const warehouse = await getWarehouseCoords();
 
   const cards: GroupStage[] = (stages ?? []).map((s: any) => {
     const tc = taskCounts.get(s.id);
     const miles =
-      barn && s.lat != null && s.lng != null
-        ? haversineMiles(barn, { lat: Number(s.lat), lng: Number(s.lng) })
+      warehouse && s.lat != null && s.lng != null
+        ? haversineMiles(warehouse, { lat: Number(s.lat), lng: Number(s.lng) })
         : null;
     return {
       id: s.id,

@@ -1,7 +1,7 @@
 import { Card, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { todayPacificISO, formatMDY, APP_TZ } from "@/lib/time";
-import { getBarnCoords } from "@/lib/distance";
+import { getWarehouseCoords } from "@/lib/distance";
 import TodayMap, { type TodayMapPin } from "@/components/TodayMap";
 import PlanRow, { type PlanJob, type Stager } from "./PlanRow";
 
@@ -214,7 +214,7 @@ export default async function PlanPage() {
     }
   }
 
-  const barn = await getBarnCoords();
+  const warehouse = await getWarehouseCoords();
 
   // Destages before stages within a day (matches the dashboard Today
   // ordering — destage happens first in the morning so it goes on top).
@@ -277,7 +277,7 @@ export default async function PlanPage() {
                     {(pinsByDay.get(d) ?? []).length > 0 && (
                       <TodayMap
                         pins={pinsByDay.get(d) ?? []}
-                        barn={barn}
+                        warehouse={warehouse}
                       />
                     )}
                     <div className="space-y-2">

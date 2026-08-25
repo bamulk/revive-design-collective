@@ -13,7 +13,7 @@
 
 export type Coords = { lat: number; lng: number };
 
-// Per-process memoization. Useful for the barn address (called from
+// Per-process memoization. Useful for the warehouse address (called from
 // every stage page) and for repeated geocodes of the same string in
 // a single request lifecycle.
 const cache = new Map<string, Coords | null>();

@@ -3,7 +3,7 @@ import { CalendarDays, Home as HomeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, LinkButton } from "@/components/ui";
 import MapView, { type MapStage } from "./MapView";
-import { getBarnCoords } from "@/lib/distance";
+import { getWarehouseCoords } from "@/lib/distance";
 import BulkGeocodeButton from "./BulkGeocodeButton";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +59,7 @@ export default async function StagesMapPage() {
     lng: Number(s.lng),
   }));
 
-  const barn = await getBarnCoords();
+  const warehouse = await getWarehouseCoords();
   const pinned = cards.length;
   const missing = Math.max(0, (activeTotal ?? 0) - pinned);
 
@@ -85,7 +85,7 @@ export default async function StagesMapPage() {
         }
       />
 
-      <MapView stages={cards} barn={barn} />
+      <MapView stages={cards} warehouse={warehouse} />
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400 px-1">
@@ -101,10 +101,10 @@ export default async function StagesMapPage() {
           <span className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white shadow" />
           Destages
         </span>
-        {barn && (
+        {warehouse && (
           <span className="inline-flex items-center gap-1.5 ml-2">
             <span className="text-base leading-none">🏠</span>
-            Barn
+            Warehouse
           </span>
         )}
       </div>

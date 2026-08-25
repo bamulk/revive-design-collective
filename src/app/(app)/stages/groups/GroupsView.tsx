@@ -32,7 +32,7 @@ export type GroupStage = {
   thumb_url: string | null;
   tasks_done: number;
   tasks_total: number;
-  /** Distance from the barn in miles (null when lat/lng not cached yet). */
+  /** Distance from the warehouse in miles (null when lat/lng not cached yet). */
   miles: number | null;
   square_footage: number | null;
   bedrooms: number | null;
@@ -479,7 +479,7 @@ function StageCard({
         </div>
 
         {/* Content — Upcoming cards swap client/destage for city,
-            miles-from-barn, and Zillow property details (sqft/bd/ba).
+            miles-from-warehouse, and Zillow property details (sqft/bd/ba).
             Other statuses keep the original layout. */}
         <div className="flex-1 min-w-0 p-3 pr-3 space-y-1.5">
           {stage.status === "scheduled" ? (
@@ -553,9 +553,9 @@ function StageCard({
                 {stage.miles != null && (
                   <span
                     className="text-[11px] text-slate-600 dark:text-slate-400"
-                    title="Straight-line distance from barn"
+                    title="Straight-line distance from warehouse"
                   >
-                    {stage.miles.toFixed(1)} mi from barn
+                    {stage.miles.toFixed(1)} mi from warehouse
                   </span>
                 )}
                 {stage.tasks_total > 0 && (

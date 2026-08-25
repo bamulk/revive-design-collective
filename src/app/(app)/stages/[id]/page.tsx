@@ -56,7 +56,7 @@ import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
 import { geocodeAddress, reverseGeocodeArea } from "@/lib/geocode";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getBarnCoords, haversineMiles } from "@/lib/distance";
+import { getWarehouseCoords, haversineMiles } from "@/lib/distance";
 import { formatMDY } from "@/lib/time";
 import { parseLineItems, type SelectedAddOn } from "@/lib/pricing";
 
@@ -158,7 +158,7 @@ export default async function StageDetailPage({
       )
     : [];
 
-  // Miles-from-barn uses the cached lat/lng on the row. If it's
+  // Miles-from-warehouse uses the cached lat/lng on the row. If it's
   // missing, we queue a background geocode (Next 16's after()) so the
   // first edit click renders immediately — the next visit will have
   // miles populated.
@@ -213,11 +213,11 @@ export default async function StageDetailPage({
       }
     });
   }
-  let milesFromBarn: number | null = null;
+  let milesFromWarehouse: number | null = null;
   if (stageLat != null && stageLng != null) {
-    const barn = await getBarnCoords();
-    if (barn) {
-      milesFromBarn = haversineMiles(barn, { lat: stageLat, lng: stageLng });
+    const warehouse = await getWarehouseCoords();
+    if (warehouse) {
+      milesFromWarehouse = haversineMiles(warehouse, { lat: stageLat, lng: stageLng });
     }
   }
 
@@ -553,7 +553,7 @@ export default async function StageDetailPage({
               lockboxCode={stage.lockbox_code ?? null}
               billTo={stage.bill_to ?? null}
               notes={stage.notes ?? null}
-              milesFromBarn={milesFromBarn}
+              milesFromWarehouse={milesFromWarehouse}
             />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
@@ -565,10 +565,10 @@ export default async function StageDetailPage({
                 stageId={id}
                 lockboxCode={stage.lockbox_code ?? null}
               />
-              <Field label="Miles from barn">
-                {milesFromBarn != null ? (
+              <Field label="Miles from warehouse">
+                {milesFromWarehouse != null ? (
                   <span title="Straight-line distance from 6135 Rio Linda Blvd">
-                    {milesFromBarn.toFixed(1)} mi
+                    {milesFromWarehouse.toFixed(1)} mi
                     <span className="block text-[10px] text-slate-500 dark:text-slate-400">
                       straight line
                     </span>

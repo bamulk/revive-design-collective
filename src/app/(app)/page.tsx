@@ -26,7 +26,7 @@ import NeedPicturesSection from "./_NeedPicturesSection";
 import { after } from "next/server";
 import { geocodeAddress } from "@/lib/geocode";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getBarnCoords, haversineMiles } from "@/lib/distance";
+import { getWarehouseCoords, haversineMiles } from "@/lib/distance";
 import { THUMB } from "@/lib/photo-urls";
 import { signThumbsCached } from "@/lib/sign-thumbs";
 import { todayPacificISO, pacificDateLabel, formatMDY, APP_TZ } from "@/lib/time";
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
     ]);
 
   // Fetch the first photo for each stage that's on today's list, plus
-  // compute miles-from-barn from the cached lat/lng (or geocode now if
+  // compute miles-from-warehouse from the cached lat/lng (or geocode now if
   // missing). This is a tiny list (rarely > 5 rows), so the parallel
   // fetches are cheap.
   type TodayCard = {
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
 
   const todayRowsList = (todayRows ?? []) as any[];
   const stageIds = todayRowsList.map((r) => r.id);
-  const barn = todayRowsList.length > 0 ? await getBarnCoords() : null;
+  const warehouse = todayRowsList.length > 0 ? await getWarehouseCoords() : null;
 
   // First-photo path is cached on the stages row itself by trigger
   // (migration 028). No more separate stage_photos scan.
@@ -259,8 +259,8 @@ export default async function DashboardPage() {
         });
       }
       const miles =
-        barn && lat != null && lng != null
-          ? haversineMiles(barn, { lat, lng })
+        warehouse && lat != null && lng != null
+          ? haversineMiles(warehouse, { lat, lng })
           : null;
       const base = {
         id: r.id,
@@ -464,7 +464,7 @@ export default async function DashboardPage() {
             {todayMapPins.length > 0 && (
               <TodayMap
                 pins={todayMapPins}
-                barn={barn}
+                warehouse={warehouse}
                 defaultTeam={defaultTeam}
               />
             )}
@@ -595,7 +595,7 @@ export default async function DashboardPage() {
  * Single card for the Today list. Matches the stages-page card style
  * (horizontal layout with a small left thumbnail) and shows the
  * stage/destage tag using the StatusBadge palette, plus address, city,
- * client name, miles-from-barn, and lockbox code.
+ * client name, miles-from-warehouse, and lockbox code.
  */
 function TodayCardItem({
   item,
@@ -750,7 +750,7 @@ function TodayCardItem({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600 dark:text-slate-400">
             {item.miles != null && (
               <span title="Straight-line distance from 6135 Rio Linda Blvd">
-                {item.miles.toFixed(1)} mi from barn
+                {item.miles.toFixed(1)} mi from warehouse
               </span>
             )}
             {item.lockboxCode && (

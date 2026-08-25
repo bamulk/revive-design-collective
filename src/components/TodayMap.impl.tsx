@@ -48,7 +48,7 @@ function colorIcon(hex: string) {
   });
 }
 
-function barnIcon() {
+function warehouseIcon() {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 36 44">
       <path fill="#7c8b76" stroke="white" stroke-width="2" d="M18 0C8 0 0 8 0 18c0 11 18 26 18 26s18-15 18-26C36 8 28 0 18 0z"/>
@@ -109,11 +109,11 @@ function FitBounds({ points }: { points: Array<[number, number]> }) {
  */
 export default function TodayMap({
   pins,
-  barn,
+  warehouse,
   defaultTeam = null,
 }: {
   pins: TodayMapPin[];
-  barn: { lat: number; lng: number } | null;
+  warehouse: { lat: number; lng: number } | null;
   /** Team to pre-select; null → "All". */
   defaultTeam?: TeamKey | null;
 }) {
@@ -143,10 +143,10 @@ export default function TodayMap({
     p.lat,
     p.lng,
   ]);
-  if (barn) points.push([barn.lat, barn.lng]);
+  if (warehouse) points.push([warehouse.lat, warehouse.lng]);
 
-  const center: [number, number] = barn
-    ? [barn.lat, barn.lng]
+  const center: [number, number] = warehouse
+    ? [warehouse.lat, warehouse.lng]
     : filteredPins[0]
     ? [filteredPins[0].lat, filteredPins[0].lng]
     : pins[0]
@@ -206,10 +206,10 @@ export default function TodayMap({
           <FitBounds points={points} />
           <TwoFingerPan />
 
-          {barn && (
-            <Marker position={[barn.lat, barn.lng]} icon={barnIcon()}>
+          {warehouse && (
+            <Marker position={[warehouse.lat, warehouse.lng]} icon={warehouseIcon()}>
               <Popup>
-                <div className="font-semibold">Barn</div>
+                <div className="font-semibold">Warehouse</div>
                 <div className="text-xs text-slate-600">6135 Rio Linda Blvd</div>
               </Popup>
             </Marker>

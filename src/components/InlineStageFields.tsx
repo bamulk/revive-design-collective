@@ -18,7 +18,7 @@ type FieldKey =
  * "Edit" mode, no submit button.
  *
  * stage_date / destage_date / lockbox sit in a grid; notes is a
- * full-width textarea below. Miles-from-barn is passed through as a
+ * full-width textarea below. Miles-from-warehouse is passed through as a
  * read-only cell so the grid layout matches the old read-only view.
  */
 export default function InlineStageFields({
@@ -28,7 +28,7 @@ export default function InlineStageFields({
   lockboxCode,
   billTo,
   notes,
-  milesFromBarn,
+  milesFromWarehouse,
 }: {
   stageId: string;
   stageDate: string | null;
@@ -37,7 +37,7 @@ export default function InlineStageFields({
   /** Billing entity (e.g. an LLC) printed as the invoice's Bill To. */
   billTo: string | null;
   notes: string | null;
-  milesFromBarn: number | null;
+  milesFromWarehouse: number | null;
 }) {
   return (
     <>
@@ -74,11 +74,11 @@ export default function InlineStageFields({
           placeholder="LLC or company — blank = client"
         />
         <div>
-          <FieldLabel>Miles from barn</FieldLabel>
+          <FieldLabel>Miles from warehouse</FieldLabel>
           <div className="mt-1">
-            {milesFromBarn != null ? (
+            {milesFromWarehouse != null ? (
               <span title="Straight-line distance from 6135 Rio Linda Blvd">
-                {milesFromBarn.toFixed(1)} mi
+                {milesFromWarehouse.toFixed(1)} mi
                 <span className="block text-[10px] text-slate-500 dark:text-slate-400">
                   straight line
                 </span>

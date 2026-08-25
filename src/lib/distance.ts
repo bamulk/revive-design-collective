@@ -1,35 +1,36 @@
 import { type Coords } from "./geocode";
 
-/** The shop. Distance is reported as miles from this point. */
-export const BARN_ADDRESS = "6135 Rio Linda Blvd, Rio Linda, CA 95673";
+/** The warehouse. Distance is reported as miles from this point. */
+export const WAREHOUSE_ADDRESS = "8160 14th Ave Suite D, Sacramento, CA 95826";
 
 /**
- * Hardcoded coordinates for BARN_ADDRESS (verified via Nominatim).
+ * Hardcoded coordinates for WAREHOUSE_ADDRESS (verified via Nominatim).
  *
  * Kept as a constant so distance math NEVER makes a network call on the
- * render path. Previously this geocoded the barn on first use and
+ * render path. Previously this geocoded the warehouse on first use and
  * memoized it per process — but a cold serverless worker (every deploy,
  * and Vercel recycles workers) re-ran the lookup, and a slow/throttled
  * Nominatim resolve (up to its 8s timeout) blocked the first byte of the
  * page. That was the 3-4s "hang" after saving a stage edit, since the
  * post-save redirect waits on the destination's shell render.
  *
- * Override per-deployment with BARN_LAT / BARN_LNG env vars if the shop
+ * Override per-deployment with WAREHOUSE_LAT / WAREHOUSE_LNG env vars if the shop
  * ever relocates.
  */
-const BARN_COORDS: Coords = (() => {
-  const lat = Number(process.env.BARN_LAT);
-  const lng = Number(process.env.BARN_LNG);
+const WAREHOUSE_COORDS: Coords = (() => {
+  const lat = Number(process.env.WAREHOUSE_LAT);
+  const lng = Number(process.env.WAREHOUSE_LNG);
   if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
-  return { lat: 38.6792706, lng: -121.456967 };
+  // 8160 14th Ave Suite D, Sacramento, CA 95826 (verified via Nominatim).
+  return { lat: 38.5394904, lng: -121.4063463 };
 })();
 
 /**
- * Barn coordinates — synchronous and network-free. Returns a plain
+ * Warehouse coordinates — synchronous and network-free. Returns a plain
  * value (callers may still `await` it harmlessly).
  */
-export function getBarnCoords(): Coords {
-  return BARN_COORDS;
+export function getWarehouseCoords(): Coords {
+  return WAREHOUSE_COORDS;
 }
 
 /**

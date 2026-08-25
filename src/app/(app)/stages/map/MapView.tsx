@@ -51,7 +51,7 @@ function colorIcon(hex: string) {
   });
 }
 
-function barnIcon() {
+function warehouseIcon() {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
       <path fill="#7c8b76" stroke="white" stroke-width="2" d="M18 0C8 0 0 8 0 18c0 11 18 26 18 26s18-15 18-26C36 8 28 0 18 0z"/>
@@ -82,10 +82,10 @@ function FitBounds({
 
 export default function MapView({
   stages,
-  barn,
+  warehouse,
 }: {
   stages: MapStage[];
-  barn: { lat: number; lng: number } | null;
+  warehouse: { lat: number; lng: number } | null;
 }) {
   // Status filter — bitmask via Set of enabled status keys.
   const [enabled, setEnabled] = useState<Set<string>>(
@@ -103,13 +103,13 @@ export default function MapView({
     return c;
   }, [stages]);
 
-  // Default center: barn if known, else center of Sacramento.
-  const center: [number, number] = barn
-    ? [barn.lat, barn.lng]
+  // Default center: warehouse if known, else center of Sacramento.
+  const center: [number, number] = warehouse
+    ? [warehouse.lat, warehouse.lng]
     : [38.5816, -121.4944];
 
   const points: Array<[number, number]> = filtered.map((s) => [s.lat, s.lng]);
-  if (barn) points.push([barn.lat, barn.lng]);
+  if (warehouse) points.push([warehouse.lat, warehouse.lng]);
 
   function toggle(status: string) {
     setEnabled((prev) => {
@@ -171,11 +171,11 @@ export default function MapView({
             />
             <FitBounds points={points} />
 
-            {/* Barn marker */}
-            {barn && (
-              <Marker position={[barn.lat, barn.lng]} icon={barnIcon()}>
+            {/* Warehouse marker */}
+            {warehouse && (
+              <Marker position={[warehouse.lat, warehouse.lng]} icon={warehouseIcon()}>
                 <Popup>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">Barn</div>
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">Warehouse</div>
                   <div className="text-xs text-slate-600 dark:text-slate-400">
                     6135 Rio Linda Blvd
                   </div>
