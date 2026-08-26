@@ -45,7 +45,7 @@ export async function sendInvoiceEmailFor(
     const { data: stage } = await supabase
       .from("stages")
       .select(
-        "id, address, amount, invoice_pdf_url, secondary_recipient_email, client:clients(name, email)",
+        "id, address, amount, invoice_pdf_url, secondary_recipient_email, homeowner_name, homeowner_email, client:clients(name, email)",
       )
       .eq("id", stageId)
       .single();
@@ -53,11 +53,26 @@ export async function sendInvoiceEmailFor(
 
     const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
     const c = client as { name: string; email: string | null } | null;
-    if (!c?.email) {
+
+    // Recipient override: the invoice is billed to / emailed to the
+    // homeowner when one is on file (realtor-intake flow); otherwise the
+    // stage's client (legacy path).
+    const homeownerName =
+      typeof (stage as any).homeowner_name === "string"
+        ? (stage as any).homeowner_name.trim()
+        : "";
+    const homeownerEmail =
+      typeof (stage as any).homeowner_email === "string"
+        ? (stage as any).homeowner_email.trim()
+        : "";
+    const hasHomeowner = !!(homeownerName && homeownerEmail);
+    const recipientName = hasHomeowner ? homeownerName : c?.name ?? "";
+    const recipientEmail = hasHomeowner ? homeownerEmail : c?.email ?? "";
+    if (!recipientEmail) {
       return {
         ok: false,
         error:
-          "Client has no email on file — add one to the client's page first.",
+          "No invoice recipient on file — enter the homeowner on the intake form, or add a client email first.",
       };
     }
 
@@ -77,12 +92,12 @@ export async function sendInvoiceEmailFor(
       .eq("role", "admin");
     const bcc = (admins ?? [])
       .map((a: any) => a.email)
-      .filter((e: string | null) => !!e && e !== c.email)
+      .filter((e: string | null) => !!e && e !== recipientEmail)
       .slice(0, 50); // Resend limit guardrail
 
     const total = Number(stage.amount).toFixed(2);
     const subject = `Invoice for ${stage.address} — Revive Design Collective`;
-    const greeting = c.name.split(/\s+/)[0] || c.name;
+    const greeting = recipientName.split(/\s+/)[0] || recipientName || "there";
     const text =
       `Hi ${greeting},\n\nThanks for choosing Revive Design Collective. ` +
       `Your invoice for ${stage.address} is attached as a PDF:\n\n${pdfUrl}\n\n` +
@@ -125,12 +140,12 @@ export async function sendInvoiceEmailFor(
         ? (stage as any).secondary_recipient_email.trim().toLowerCase()
         : "";
     const cc =
-      secondaryEmail && secondaryEmail !== c.email.toLowerCase()
+      secondaryEmail && secondaryEmail !== recipientEmail.toLowerCase()
         ? [secondaryEmail]
         : [];
 
     const { id: messageId } = await sendEmail({
-      to: c.email,
+      to: recipientEmail,
       ...(cc.length > 0 ? { cc } : {}),
       // Resend's API treats the absence of bcc as "no bcc" — passing
       // an empty array can error out, so we conditionally include it.
