@@ -312,15 +312,18 @@ export async function generateContractPdf(
 
   // Additional Fees block (client initials required).
   const feeLines = wrap(ARRIVAL_FEE_CLAUSE, 9);
-  ensureSpace(20 + 14 + feeLines.length * 11 + 30 + 30);
-  y -= 6;
-  drawText("Additional Fees (please initial)", { size: 11, font: bold });
+  ensureSpace(24 + 16 + feeLines.length * 12 + 52 + 36);
   y -= 14;
+  drawText("Additional Fees (please initial)", { size: 11, font: bold });
+  y -= 16;
   for (const line of feeLines) {
     drawText(line, { size: 9 });
-    y -= 11;
+    y -= 12;
   }
-  y -= 30; // room for the 24pt initials overlay (drawn upward from the line)
+  // Clear vertical room before the initials line so the 24pt initials
+  // box (anchored at the line, drawn upward) never overlaps the clause
+  // above it.
+  y -= 52;
   const drawInitialsBox = (name: string, left: number) => {
     page.drawLine({
       start: { x: left, y: y - 2 },
