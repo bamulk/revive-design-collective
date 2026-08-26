@@ -19,7 +19,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
   terms: [
     {
       title: "Staging Fee & Term",
-      body: "The staging fee is a flat fee, determined at the time of the agreement. It includes two months of staging, commencing on the date of install. The total fee is due upon installation of furnishings. If furnishings are needed beyond the initial term, a monthly fee of $1,000 will be charged.",
+      body: "The staging fee is a flat fee, determined at the time of the agreement. It includes two months of staging, commencing on the date of install. The total fee is due upon installation of furnishings. Additional 30-day extensions are available for 50% of the original staging fee ({{extension_amount}}).",
     },
     {
       title: "Payment",
