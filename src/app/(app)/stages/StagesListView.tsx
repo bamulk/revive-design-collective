@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   ArrowDown,
   ArrowUp,
-  Users,
 } from "lucide-react";
 import { Card, StatusBadge } from "@/components/ui";
 import { formatMDY } from "@/lib/time";
@@ -23,8 +22,6 @@ export type StageRow = {
   destage_date: string | null;
   amount: number;
   paid_at: string | null;
-  team: "grey" | "white" | "little" | null;
-  destage_team: "grey" | "white" | "little" | null;
   escrow: boolean;
 };
 
@@ -38,7 +35,6 @@ const STATUSES = [
 
 type PaidFilter = "any" | "paid" | "unpaid";
 type EscrowFilter = "any" | "yes";
-type TeamFilter = "any" | "grey" | "white" | "little";
 type YearFilter = "all" | "this" | "last";
 type SortKey =
   | "stage_date_desc"
@@ -54,12 +50,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "amount_asc", label: "Amount — low to high" },
   { key: "address_asc", label: "Address A→Z" },
 ];
-
-const TEAM_DOT: Record<Exclude<TeamFilter, "any">, string> = {
-  grey: "bg-slate-600",
-  white: "bg-white border border-slate-400",
-  little: "bg-amber-500",
-};
 
 /**
  * Filterable, searchable list of every stage. Replaces the old flat
@@ -79,7 +69,6 @@ export default function StagesListView({
   );
   const [paid, setPaid] = useState<PaidFilter>("any");
   const [escrow, setEscrow] = useState<EscrowFilter>("any");
-  const [team, setTeam] = useState<TeamFilter>("any");
   const [year, setYear] = useState<YearFilter>("all");
   const [sort, setSort] = useState<SortKey>("stage_date_desc");
 
@@ -92,7 +81,6 @@ export default function StagesListView({
   const deferredStatusSet = useDeferredValue(statusSet);
   const deferredPaid = useDeferredValue(paid);
   const deferredEscrow = useDeferredValue(escrow);
-  const deferredTeam = useDeferredValue(team);
   const deferredYear = useDeferredValue(year);
   const deferredSort = useDeferredValue(sort);
   const [, startTransition] = useTransition();
@@ -101,7 +89,6 @@ export default function StagesListView({
     statusSet !== deferredStatusSet ||
     paid !== deferredPaid ||
     escrow !== deferredEscrow ||
-    team !== deferredTeam ||
     year !== deferredYear ||
     sort !== deferredSort;
 
@@ -119,13 +106,6 @@ export default function StagesListView({
       if (deferredPaid === "unpaid" && s.paid_at) return false;
       // Escrow
       if (deferredEscrow === "yes" && !s.escrow) return false;
-      // Team — checks both stage and destage crew
-      if (
-        deferredTeam !== "any" &&
-        s.team !== deferredTeam &&
-        s.destage_team !== deferredTeam
-      )
-        return false;
       // Year
       if (deferredYear !== "all") {
         const want =
@@ -150,7 +130,6 @@ export default function StagesListView({
     deferredStatusSet,
     deferredPaid,
     deferredEscrow,
-    deferredTeam,
     deferredYear,
     currentYear,
   ]);
@@ -198,7 +177,6 @@ export default function StagesListView({
       setStatusSet(new Set(["scheduled", "staged", "destaged", "completed"]));
       setPaid("any");
       setEscrow("any");
-      setTeam("any");
       setYear("all");
     });
   }
@@ -207,7 +185,6 @@ export default function StagesListView({
     query.trim() !== "" ||
     paid !== "any" ||
     escrow !== "any" ||
-    team !== "any" ||
     year !== "all" ||
     statusSet.size !== 4 ||
     !["scheduled", "staged", "destaged", "completed"].every((k) =>
@@ -315,19 +292,6 @@ export default function StagesListView({
               }
             />
           )}
-          <Segmented
-            label="Team"
-            value={team}
-            options={[
-              { v: "any", label: "Any" },
-              { v: "grey", label: "Grey" },
-              { v: "white", label: "White" },
-              { v: "little", label: "Little" },
-            ]}
-            onChange={(v) =>
-              startTransition(() => setTeam(v as TeamFilter))
-            }
-          />
           {isAdmin && (
             <Segmented
               label="Escrow"
@@ -385,7 +349,6 @@ export default function StagesListView({
                 <th className="p-3 font-medium">Stage</th>
                 <th className="p-3 font-medium">Destage</th>
                 <th className="p-3 font-medium">Status</th>
-                <th className="p-3 font-medium">Team</th>
                 {isAdmin && (
                   <th className="p-3 font-medium text-right">Amount</th>
                 )}
@@ -426,9 +389,6 @@ export default function StagesListView({
                         Escrow
                       </span>
                     )}
-                  </td>
-                  <td className="p-3">
-                    <TeamCell stage={s.team} destage={s.destage_team} />
                   </td>
                   {isAdmin && (
                     <td className="p-3 text-right tabular-nums font-medium">
@@ -506,7 +466,6 @@ export default function StagesListView({
                   Escrow
                 </span>
               )}
-              <TeamCell stage={s.team} destage={s.destage_team} />
               <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-auto tabular-nums">
                 {formatMDY(s.stage_date)}
               </span>
@@ -561,41 +520,6 @@ function Segmented({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function TeamCell({
-  stage,
-  destage,
-}: {
-  stage: "grey" | "white" | "little" | null;
-  destage: "grey" | "white" | "little" | null;
-}) {
-  // Show whichever team is set. If both are set and differ, render
-  // both as "S:Grey · D:White" so the user sees the split.
-  const items: { label: string; team: "grey" | "white" | "little" }[] = [];
-  if (stage) items.push({ label: destage && destage !== stage ? "S" : "", team: stage });
-  if (destage && destage !== stage)
-    items.push({ label: "D", team: destage });
-  if (items.length === 0)
-    return <span className="text-slate-400 dark:text-slate-500">—</span>;
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {items.map((it, i) => (
-        <span
-          key={i}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium ring-1 ring-inset bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 ring-slate-200 dark:ring-slate-700"
-        >
-          <Users size={9} />
-          {it.label && <span className="font-semibold">{it.label}:</span>}
-          <span
-            className={`w-2 h-2 rounded-full ${TEAM_DOT[it.team]}`}
-            aria-hidden
-          />
-          <span className="capitalize">{it.team}</span>
-        </span>
-      ))}
     </div>
   );
 }
