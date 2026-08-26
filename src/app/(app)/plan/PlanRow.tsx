@@ -17,27 +17,6 @@ export type PlanJob = {
   stagerIds: string[];
 };
 
-const TEAMS: { key: TeamKey; label: string; chip: string; chipActive: string }[] = [
-  {
-    key: "grey",
-    label: "Grey",
-    chip: "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700",
-    chipActive: "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
-  },
-  {
-    key: "white",
-    label: "White",
-    chip: "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800",
-    chipActive: "bg-slate-900 text-white ring-slate-900 dark:bg-white dark:text-slate-900 dark:ring-white",
-  },
-  {
-    key: "little",
-    label: "Little",
-    chip: "bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40",
-    chipActive: "bg-amber-600 text-white dark:bg-amber-500",
-  },
-];
-
 export default function PlanRow({
   job,
   stagers,
@@ -60,19 +39,18 @@ export default function PlanRow({
     return av - bv;
   });
   const availableCount = stagers.filter((s) => availableSet.has(s.id)).length;
-  const [team, setTeam] = useState<TeamKey | null>(job.team);
   const [stagerIds, setStagerIds] = useState<string[]>(job.stagerIds);
   const [pending, startTransition] = useTransition();
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  function save(nextTeam: TeamKey | null, nextStagers: string[]) {
+  function save(nextStagers: string[]) {
     setErr(null);
     startTransition(async () => {
       const res = await assignTeamAction({
         stageId: job.id,
         kind: job.kind,
-        team: nextTeam,
+        team: null,
         stagerIds: nextStagers,
       });
       if (!res.ok) setErr(res.error);
@@ -80,19 +58,12 @@ export default function PlanRow({
     });
   }
 
-  function pickTeam(t: TeamKey) {
-    const next = team === t ? null : t;
-    setTeam(next);
-    if (next === null) setStagerIds([]);
-    save(next, next === null ? [] : stagerIds);
-  }
-
   function toggleStager(id: string) {
     const next = stagerIds.includes(id)
       ? stagerIds.filter((x) => x !== id)
       : [...stagerIds, id];
     setStagerIds(next);
-    save(team, next);
+    save(next);
   }
 
   // Color-tint the card border by kind to match the dashboard Today
@@ -130,55 +101,9 @@ export default function PlanRow({
         </span>
       </div>
 
-      {/* Team picker (admin) or read-only team chip (stager) */}
-      {isAdmin ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mr-1">
-            Team
-          </span>
-          {TEAMS.map((t) => {
-            const active = team === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => pickTeam(t.key)}
-                disabled={pending}
-                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
-                  active ? t.chipActive : t.chip
-                } disabled:opacity-60`}
-              >
-                {active && <Check size={12} />}
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mr-1">
-            Team
-          </span>
-          {team ? (
-            <span
-              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                TEAMS.find((t) => t.key === team)?.chipActive ?? ""
-              }`}
-            >
-              {TEAMS.find((t) => t.key === team)?.label}
-            </span>
-          ) : (
-            <span className="text-xs italic text-slate-500 dark:text-slate-400">
-              Not assigned yet
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Stager list — interactive multi-select for admins, read-only
           chips for stagers. */}
-      {team !== null && (
-        <div className="space-y-1.5">
+      <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
             <Users size={12} />
             Stagers on this job
@@ -252,7 +177,6 @@ export default function PlanRow({
             </div>
           )}
         </div>
-      )}
 
       {/* Status line — only for admins (only they can save). */}
       {isAdmin && (
