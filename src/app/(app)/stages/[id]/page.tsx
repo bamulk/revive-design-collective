@@ -23,6 +23,7 @@ import StagePhotos, { StagePhotosFallback } from "./_StagePhotos";
 import { StatusBadge } from "@/components/ui";
 import SignatureSendButton from "@/components/SignatureSendButton";
 import SignatureSyncButton from "@/components/SignatureSyncButton";
+import HandoffSection from "@/components/HandoffSection";
 import ChangeTo90Button from "@/components/ChangeTo90Button";
 import NewAgreementButton from "@/components/NewAgreementButton";
 import DeleteStageButton from "@/components/DeleteStageButton";
@@ -681,6 +682,17 @@ export default async function StageDetailPage({
           handle contracts or billing — they just stage and destage.
           The Signature card now hosts the secondary signer / payer
           editor inline so the contract recipients live in one place. */}
+      {isAdmin && (
+        <HandoffSection
+          stageId={id}
+          agentName={stage.clients?.name ?? null}
+          handoffToken={stage.handoff_token ?? null}
+          sellerName={stage.homeowner_name ?? null}
+          sellerEmail={stage.homeowner_email ?? null}
+          completedAt={stage.handoff_completed_at ?? null}
+        />
+      )}
+
       {isAdmin && (
       <section className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">

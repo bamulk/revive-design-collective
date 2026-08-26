@@ -15,6 +15,8 @@ import { getContractTemplate } from "@/lib/contract-template";
 import { sendSignatureFromStage } from "@/lib/signature-send-core";
 import { generateInvoiceFor } from "@/lib/invoice-generate-core";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
+import { emailButton } from "@/lib/email-button";
+import { randomBytes } from "node:crypto";
 import {
   computePrice,
   ESCROW_FEE,
@@ -236,6 +238,9 @@ export async function createStageAction(formData: FormData) {
       ((formData.get("secondary_recipient_email") as string) || "")
         .trim()
         .toLowerCase() || null,
+    // Seller-handoff link. Minted up front so the agent's "not yours to
+    // sign?" email can carry it; consumed only if they use it.
+    handoff_token: randomBytes(24).toString("base64url"),
   };
   if (!payload.client_id || !payload.address) {
     throw new Error("Client and address are required");
@@ -280,9 +285,98 @@ export async function createStageAction(formData: FormData) {
   } catch (e) {
     console.error("[createStageAction] sendSignatureRequest failed:", e);
   }
+  // Give the agent an out: a link to pass this stage to the seller. The
+  // agreement itself is emailed by SignatureAPI, so this is a separate
+  // note from us. Best-effort — resendable from the stage page.
+  try {
+    await sendHandoffEmailToAgent(data.id);
+  } catch (e) {
+    console.error("[createStageAction] sendHandoffEmailToAgent failed:", e);
+  }
 
   revalidatePath("/stages");
   redirect(`/stages/${data.id}`);
+}
+
+/**
+ * Email the agent (the stage's client) a link to the public handoff form
+ * (/handoff/<token>), where they can pass the stage to the seller if they
+ * don't want responsibility for it. Returns false (quietly) when email
+ * isn't configured, the token is gone, the agent has no email, or the
+ * stage has already been handed off.
+ */
+export async function sendHandoffEmailToAgent(
+  stageId: string,
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  const supabase = await createClient();
+  const { data: stage } = await supabase
+    .from("stages")
+    .select("id, address, handoff_token, client:clients(name, email)")
+    .eq("id", stageId)
+    .single();
+  if (!stage?.handoff_token) return false;
+  const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
+  const agent = client as { name: string; email: string | null } | null;
+  if (!agent?.email) return false;
+
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    ""
+  ).replace(/\/$/, "");
+  const link = `${baseUrl}/handoff/${stage.handoff_token}`;
+  const firstName = (agent.name || "there").split(/\s+/)[0] || "there";
+  const subject = `Staging for ${stage.address} — signing on behalf of your seller?`;
+  const text = `Hi ${firstName},
+
+The staging agreement for ${stage.address} is on its way to you to sign.
+
+If you'd rather your seller take it on, use the link below to send it to them instead. They'll sign the agreement and receive the invoice — you stay on the job as the referring agent, without the paperwork.
+
+${link}
+
+If you're happy to sign it yourself, just ignore this and sign the agreement as normal.
+
+Thanks!
+Revive Design Collective`;
+  const html = `<!DOCTYPE html>
+<html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:560px; margin:0 auto; padding:24px;">
+  <p>Hi ${firstName},</p>
+  <p>The staging agreement for <strong>${stage.address}</strong> is on its way to you to sign.</p>
+  <p>If you&rsquo;d rather your seller take it on, send it to them instead. They&rsquo;ll sign the agreement and receive the invoice &mdash; you stay on the job as the referring agent, without the paperwork.</p>
+  ${emailButton({ href: link, label: "Send to the seller" })}
+  <p style="font-size:13px; color:#64748b;">Happy to sign it yourself? Just ignore this and sign the agreement as normal.</p>
+  <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
+</body></html>`;
+  try {
+    await sendEmail({ to: agent.email, subject, text, html });
+    return true;
+  } catch (e) {
+    console.error("[sendHandoffEmailToAgent] failed:", e);
+    return false;
+  }
+}
+
+/** Admin action: re-send the agent's handoff link from the stage page. */
+export async function resendHandoffEmailAction(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    const sent = await sendHandoffEmailToAgent(id);
+    if (!sent) {
+      return {
+        ok: false,
+        error:
+          "Couldn't send — the stage may already be handed off, or the agent has no email on file.",
+      };
+    }
+    revalidatePath(`/stages/${id}`);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Failed to resend" };
+  }
 }
 
 export type SignatureSendResult = { ok: true } | { ok: false; error: string };
