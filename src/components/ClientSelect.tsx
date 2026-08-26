@@ -22,12 +22,9 @@ type ClientOption = { id: string; name: string };
 export default function ClientSelect({
   clients,
   defaultClientId,
-  label = "Client",
 }: {
   clients: ClientOption[];
   defaultClientId?: string;
-  /** Heading shown above the picker. Defaults to "Client". */
-  label?: string;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedId, setSelectedId] = useState<string>(defaultClientId ?? "");
@@ -89,7 +86,7 @@ export default function ClientSelect({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{label} *</span>
+        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Client *</span>
         <button
           type="button"
           onClick={() => setMode(mode === "existing" ? "new" : "existing")}

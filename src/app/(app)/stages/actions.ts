@@ -15,8 +15,6 @@ import { getContractTemplate } from "@/lib/contract-template";
 import { sendSignatureFromStage } from "@/lib/signature-send-core";
 import { generateInvoiceFor } from "@/lib/invoice-generate-core";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
-import { emailButton } from "@/lib/email-button";
-import { randomBytes } from "node:crypto";
 import {
   computePrice,
   ESCROW_FEE,
@@ -238,13 +236,9 @@ export async function createStageAction(formData: FormData) {
       ((formData.get("secondary_recipient_email") as string) || "")
         .trim()
         .toLowerCase() || null,
-    // Realtor-intake flow: mint a token now. On save we email the realtor
-    // (the stage's client) a link to /intake/<token> where they enter the
-    // homeowner who actually signs + pays.
-    intake_token: randomBytes(24).toString("base64url"),
   };
   if (!payload.client_id || !payload.address) {
-    throw new Error("Realtor/agent and address are required");
+    throw new Error("Client and address are required");
   }
   // Either a package OR a custom price > 0 is required.
   if (!pricing.packageKey && !(pricing.amount > 0)) {
@@ -277,91 +271,18 @@ export async function createStageAction(formData: FormData) {
     stageAddress: payload.address,
     details: { status: payload.status },
   });
-  // Email the realtor (the stage's client) the intake-form link. The
-  // signature is NOT sent here — it goes to the homeowner only after the
-  // realtor submits the form. Best-effort: the stage is saved regardless,
-  // and the admin can resend the intake link from the stage page.
+  // Signature request is a best-effort side effect. If SIGNATURE_API_KEY
+  // is missing or the provider returns an error, the stage is already
+  // saved and the user should still land on the detail page. The admin
+  // can hit "Send signature" manually from there. Log and keep going.
   try {
-    await sendIntakeEmailToAgent(data.id);
+    await sendSignatureRequest(data.id);
   } catch (e) {
-    console.error("[createStageAction] sendIntakeEmailToAgent failed:", e);
+    console.error("[createStageAction] sendSignatureRequest failed:", e);
   }
 
   revalidatePath("/stages");
   redirect(`/stages/${data.id}`);
-}
-
-/**
- * Email the realtor/agent (the stage's client) a link to the public
- * intake form (/intake/<token>) where they enter the homeowner's name +
- * email. Returns quietly when email isn't configured, the stage has no
- * token, or the agent has no email — the link can be resent later.
- */
-export async function sendIntakeEmailToAgent(stageId: string): Promise<boolean> {
-  if (!isEmailConfigured()) return false;
-  const supabase = await createClient();
-  const { data: stage } = await supabase
-    .from("stages")
-    .select("id, address, intake_token, client:clients(name, email)")
-    .eq("id", stageId)
-    .single();
-  if (!stage?.intake_token) return false;
-  const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
-  const agent = client as { name: string; email: string | null } | null;
-  if (!agent?.email) return false;
-
-  const baseUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    ""
-  ).replace(/\/$/, "");
-  const link = `${baseUrl}/intake/${stage.intake_token}`;
-  const firstName = (agent.name || "there").split(/\s+/)[0] || "there";
-  const subject = `Staging for ${stage.address} — enter your client's details`;
-  const text = `Hi ${firstName},
-
-A staging has been set up for ${stage.address}. To get it moving, please enter your client's (the homeowner's) name and email using the link below. We'll send them the agreement to sign and the invoice — you're kept out of the paperwork, and the stage stays under you.
-
-${link}
-
-Thanks!
-Revive Design Collective`;
-  const html = `<!DOCTYPE html>
-<html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:560px; margin:0 auto; padding:24px;">
-  <p>Hi ${firstName},</p>
-  <p>A staging has been set up for <strong>${stage.address}</strong>. To get it moving, please enter your client&rsquo;s (the homeowner&rsquo;s) name and email. We&rsquo;ll send them the agreement to sign and the invoice &mdash; you&rsquo;re kept out of the paperwork, and the stage stays under you.</p>
-  ${emailButton({ href: link, label: "Enter homeowner details" })}
-  <p style="font-size:13px; color:#64748b;">Or paste this link: ${link}</p>
-  <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
-</body></html>`;
-  try {
-    await sendEmail({ to: agent.email, subject, text, html });
-    return true;
-  } catch (e) {
-    console.error("[sendIntakeEmailToAgent] failed:", e);
-    return false;
-  }
-}
-
-/** Admin action: re-send the realtor intake email from the stage page. */
-export async function resendIntakeEmailAction(
-  id: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    await requireAdmin();
-    const sent = await sendIntakeEmailToAgent(id);
-    if (!sent) {
-      return {
-        ok: false,
-        error:
-          "Couldn't send — check the realtor has an email on file and that email is configured.",
-      };
-    }
-    revalidatePath(`/stages/${id}`);
-    return { ok: true };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to resend" };
-  }
 }
 
 export type SignatureSendResult = { ok: true } | { ok: false; error: string };

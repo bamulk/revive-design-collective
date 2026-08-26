@@ -49,9 +49,6 @@ export async function proxy(request: NextRequest) {
     // /x/{token} is the public extension-confirmation page clients land on
     // from the 10-day reminder email. URL contains a high-entropy token.
     pathname.startsWith("/x/") ||
-    // /intake/{token} is the public realtor form (enter the homeowner).
-    // URL contains a high-entropy token.
-    pathname.startsWith("/intake/") ||
     pathname.startsWith("/api/signatures/webhook") ||
     // Cron routes auth via CRON_SECRET (bearer header). They must
     // skip the session-cookie check or the middleware will redirect

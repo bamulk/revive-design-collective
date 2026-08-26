@@ -39,11 +39,7 @@ export default async function NewStagePage({
       </BackLink>
       <h1 className="text-2xl font-semibold">New stage</h1>
       <form action={createStageAction} className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
-        <ClientSelect
-          clients={clients ?? []}
-          defaultClientId={client}
-          label="Realtor / Agent"
-        />
+        <ClientSelect clients={clients ?? []} defaultClientId={client} />
         <label className="block text-sm">
           Address *
           <input

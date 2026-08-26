@@ -24,7 +24,7 @@ export async function generateInvoiceFor(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, bill_to, client:clients(name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -134,18 +134,6 @@ export async function generateInvoiceFor(
     address: string | null;
   };
 
-  // Recipient override: bill the homeowner when one is on file
-  // (realtor-intake flow); otherwise the stage's client.
-  const homeownerName =
-    typeof (stage as any).homeowner_name === "string"
-      ? (stage as any).homeowner_name.trim()
-      : "";
-  const homeownerEmail =
-    typeof (stage as any).homeowner_email === "string"
-      ? (stage as any).homeowner_email.trim()
-      : "";
-  const hasHomeowner = !!(homeownerName && homeownerEmail);
-
   const pdfBytes = await generateInvoicePdf({
     companyName: template.company_name,
     invoiceNumber,
@@ -154,10 +142,10 @@ export async function generateInvoiceFor(
     // keys off the same date) — never the destage date, which read as
     // 30/60-day payment terms on the printed invoice.
     dueDate: stage.stage_date ?? null,
-    clientName: hasHomeowner ? homeownerName : c.name,
+    clientName: c.name,
     billTo: (stage as any).bill_to ?? null,
-    clientEmail: hasHomeowner ? homeownerEmail : c.email,
-    clientAddress: hasHomeowner ? null : c.address,
+    clientEmail: c.email,
+    clientAddress: c.address,
     propertyAddress: stage.address,
     stageDate: stage.stage_date,
     destageDate: stage.destage_date,

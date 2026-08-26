@@ -29,7 +29,7 @@ export async function sendSignatureFromStage(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, secondary_recipient_name, secondary_recipient_email, signature_envelope_id, client:clients(id, name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -41,24 +41,9 @@ export async function sendSignatureFromStage(
     | { id: string; name: string; email: string | null; address: string | null }
     | null
     | undefined;
-
-  // Recipient override: in the realtor-intake flow the stage's client is
-  // the agent, but the homeowner (entered via the public intake form) is
-  // who signs. When a homeowner is on file, they are the signer; otherwise
-  // the signer is the stage's client (legacy / estimate-accept path).
-  const homeownerName =
-    typeof stage.homeowner_name === "string" ? stage.homeowner_name.trim() : "";
-  const homeownerEmail =
-    typeof stage.homeowner_email === "string"
-      ? stage.homeowner_email.trim()
-      : "";
-  const hasHomeowner = !!(homeownerName && homeownerEmail);
-  const recipientName = hasHomeowner ? homeownerName : c?.name ?? "";
-  const recipientEmail = hasHomeowner ? homeownerEmail : c?.email ?? "";
-  const recipientAddress = hasHomeowner ? null : c?.address ?? null;
-  if (!recipientEmail) {
+  if (!c?.email) {
     throw new Error(
-      "No signer email on file — enter the homeowner on the intake form, or add a client email first."
+      "The client on this stage has no email on file — add one on the client's page first."
     );
   }
 
@@ -149,8 +134,8 @@ export async function sendSignatureFromStage(
 
   const { bytes: pdfBytes, fields } = await generateContractPdf({
     companyName: template.company_name,
-    clientName: recipientName,
-    clientAddress: recipientAddress,
+    clientName: c.name,
+    clientAddress: c.address,
     propertyAddress: stage.address,
     amount: Number(stage.amount),
     stageDate: stage.stage_date,
@@ -184,7 +169,7 @@ export async function sendSignatureFromStage(
   const envelope = await createEnvelope({
     title: `Staging Agreement — ${stage.address}`,
     documentUrl: urlData.publicUrl,
-    recipient: { name: recipientName, email: recipientEmail },
+    recipient: { name: c.name, email: c.email },
     // Positions come from the rendered layout (the editable terms can
     // push the blocks down or onto page 2), so the overlays always
     // land on the drawn lines. Initials on the Additional Fees block
@@ -206,7 +191,7 @@ export async function sendSignatureFromStage(
       signature_envelope_id: envelope.id,
       signature_status: envelope.status || "sent",
       signature_sent_at: new Date().toISOString(),
-      signature_signer_email: recipientEmail,
+      signature_signer_email: c.email,
       signature_completed_at: null,
       signed_pdf_url: null,
       // This envelope carries the initialed Additional Fees block.
