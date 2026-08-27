@@ -14,7 +14,6 @@ import {
   type ContractTemplate,
   type ContractTerm,
 } from "./contract-template";
-import { PACKAGE_INCLUDES } from "./pricing";
 
 export async function sendSignatureFromStage(
   supabase: SupabaseClient,
@@ -113,7 +112,9 @@ export async function sendSignatureFromStage(
     discount: pricing.discount,
     intro: template.intro,
     terms: template.terms,
-    packageIncludesNote: pricing.hasPackage ? PACKAGE_INCLUDES : null,
+    // Scope-of-work block is off on the agreement for now — restore with
+    // `pricing.hasPackage ? PACKAGE_INCLUDES : null`.
+    packageIncludesNote: null,
   });
 
   const path = `${stage.id}/${Date.now()}-${crypto.randomUUID()}.pdf`;
