@@ -21,7 +21,7 @@ export type AddOn = {
 
 /**
  * Temporary switch. When false, the app hides the package catalog,
- * add-ons, escrow, travel fee, and custom-line-item UI and prices every
+ * add-ons, travel fee, and custom-line-item UI and prices every
  * job with a single manual "Amount" field (stored as a custom price).
  * Flip to true to restore the full pricing catalog once Revive's own
  * package pricing is set. The catalog data below is kept intact so
@@ -44,9 +44,6 @@ export const ADD_ONS: AddOn[] = [
   { key: "extra_living", label: "Extra living space", price: 400 },
   { key: "extra_bedroom", label: "Extra bedroom, office, or dining room", price: 300 },
 ];
-
-/** Fixed surcharge added to the total when the client pays through escrow. */
-export const ESCROW_FEE = 350;
 
 /**
  * Two preset travel-fee tiers. Selected per-stage on the form; 0

@@ -39,7 +39,6 @@ export type GroupStage = {
   bathrooms: number | null;
   primary_only: boolean;
   team: "grey" | "white" | "little" | null;
-  escrow: boolean;
 };
 
 // Color language across the app:
@@ -564,11 +563,6 @@ function StageCard({
                     {stage.tasks_done}/{stage.tasks_total}
                   </span>
                 )}
-                {stage.escrow && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:ring-violet-900/60">
-                    Escrow
-                  </span>
-                )}
                 {/* Upcoming stages haven't been worked/billed yet, so no
                     "Unpaid" tag — only show Paid on the rare prepaid one. */}
                 {isAdmin && stage.paid_at && (
@@ -629,11 +623,6 @@ function StageCard({
                   <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-400">
                     <CheckSquare size={11} />
                     {stage.tasks_done}/{stage.tasks_total}
-                  </span>
-                )}
-                {stage.escrow && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:ring-violet-900/60">
-                    Escrow
                   </span>
                 )}
                 {isAdmin &&

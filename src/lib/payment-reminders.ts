@@ -20,8 +20,7 @@
  * purely per-client).
  *
  * Skipped when:
- *   - the client's payment_reminders checkbox is off (escrow payers)
- *   - the stage itself is flagged "Paying through escrow"
+ *   - the client's payment_reminders checkbox is off
  *   - the invoice email was never sent (nothing to remind about)
  *   - there's no invoice PDF to link (counted + reported, not emailed)
  *   - the client has no email on file
@@ -219,14 +218,13 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: stages, error: stagesErr } = await admin
     .from("stages")
     .select(
-      "id, address, amount, status, escrow, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
+      "id, address, amount, status, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
     .not("invoice_sent_at", "is", null)
     .neq("status", "cancelled")
-    .neq("status", "estimate")
-    .eq("escrow", false);
+    .neq("status", "estimate");
   if (stagesErr) {
     result.aborted = `stages query failed: ${stagesErr.message}`;
     return result;
@@ -278,7 +276,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: exts, error: extsErr } = await admin
     .from("stage_extensions")
     .select(
-      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, escrow, secondary_recipient_email, client:clients(name, email, payment_reminders))",
+      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, secondary_recipient_email, client:clients(name, email, payment_reminders))",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -345,8 +343,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     if (
       !stage ||
       stage.status === "cancelled" ||
-      stage.status === "estimate" ||
-      stage.escrow
+      stage.status === "estimate"
     ) {
       continue;
     }

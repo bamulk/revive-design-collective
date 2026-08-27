@@ -176,7 +176,7 @@ export async function generateExtensionInvoice(
   // The standard extension fee is 50% of the original staging charge.
   // One-time custom line items (e.g. "Piano move") are folded into
   // stage.amount, so back them out — they shouldn't recur on the
-  // every-30-days extension. (Escrow/travel remain in the base, matching
+  // every-30-days extension. (Travel remains in the base, matching
   // pre-existing behavior.)
   const baseAmount =
     Number(stage.amount ?? 0) - sumLineItems(parseLineItems(stage.line_items));

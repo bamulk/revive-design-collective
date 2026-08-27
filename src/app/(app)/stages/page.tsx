@@ -32,7 +32,7 @@ export default async function StagesPage() {
     supabase
       .from("stages")
       .select(
-        "id, address, city, status, stage_date, destage_date, amount, paid_at, escrow, clients(name)",
+        "id, address, city, status, stage_date, destage_date, amount, paid_at, clients(name)",
       )
       .neq("status", "estimate")
       .order("created_at", { ascending: false })
@@ -50,7 +50,6 @@ export default async function StagesPage() {
     destage_date: s.destage_date,
     amount: Number(s.amount ?? 0),
     paid_at: s.paid_at ?? null,
-    escrow: !!s.escrow,
   }));
 
   return (

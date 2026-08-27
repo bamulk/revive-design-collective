@@ -2,7 +2,6 @@ import {
   computePrice,
   parseLineItems,
   sumLineItems,
-  ESCROW_FEE,
   type SelectedAddOn,
 } from "./pricing";
 
@@ -21,7 +20,6 @@ export type StagePricing = {
 
 type StageLike = {
   amount?: number | null;
-  escrow?: boolean | null;
   travel_fee?: number | null;
   line_items?: unknown;
   package_key?: string | null;
@@ -35,8 +33,8 @@ type StageLike = {
  * from this, so the three can never disagree about what a stage costs.
  *
  * Custom-priced stages (no package, just a typed amount) store a total
- * that already includes escrow + travel + custom line items, so those
- * are backed out to recover the base staging charge.
+ * that already includes travel + custom line items, so those are backed
+ * out to recover the base staging charge.
  */
 export function buildStagePricing(
   stage: StageLike,
@@ -49,13 +47,12 @@ export function buildStagePricing(
   );
 
   const stageAmount = Number(stage.amount ?? 0);
-  const escrowOn = !!stage.escrow;
   const travelFee = Number(stage.travel_fee ?? 0) || 0;
   const customLineItems = parseLineItems(stage.line_items);
   const lineItemsTotal = sumLineItems(customLineItems);
   const customSubtotal = Math.max(
     0,
-    stageAmount - (escrowOn ? ESCROW_FEE : 0) - travelFee - lineItemsTotal,
+    stageAmount - travelFee - lineItemsTotal,
   );
   const isCustomPrice = !stage.package_key && customSubtotal > 0;
   const note = opts.packageNote;
@@ -88,18 +85,17 @@ export function buildStagePricing(
       label: li.description,
       amount: li.price,
     })),
-    ...(escrowOn ? [{ label: "Escrow payment fee", amount: ESCROW_FEE }] : []),
     ...(travelFee > 0 ? [{ label: "Travel fee", amount: travelFee }] : []),
   ];
 
   return {
     lineItems,
     discount: isCustomPrice ? 0 : breakdown.discount,
-    // For package pricing, breakdown.total excludes escrow/travel/custom
-    // items, so add them back.
+    // For package pricing, breakdown.total excludes travel/custom items,
+    // so add them back.
     total: isCustomPrice
       ? stageAmount
-      : breakdown.total + (escrowOn ? ESCROW_FEE : 0) + travelFee + lineItemsTotal,
+      : breakdown.total + travelFee + lineItemsTotal,
     isCustomPrice,
     hasPackage: !!breakdown.package,
   };

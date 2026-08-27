@@ -32,7 +32,7 @@ export default function ClientInfoForm({
     phone: string;
     address: string;
     notes: string;
-    /** false = escrow payer, skip automated payment-reminder emails. */
+    /** false = skip automated payment-reminder emails for this client. */
     paymentReminders: boolean;
   };
 }) {
@@ -96,7 +96,7 @@ export default function ClientInfoForm({
           className="mt-0.5 h-4 w-4 accent-brand"
         />
         <span>
-          Pays through escrow — don&rsquo;t send payment reminders
+          Don&rsquo;t send automated payment reminders
           <span className="block text-xs text-slate-500 dark:text-slate-400">
             Turns off the automated unpaid-invoice reminder emails (first
             one 5 days after an invoice is sent, then every 3 days, up to

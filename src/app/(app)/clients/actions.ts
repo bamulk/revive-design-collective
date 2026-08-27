@@ -62,7 +62,7 @@ export async function updateClientAction(id: string, formData: FormData) {
     phone: (formData.get("phone") as string) || null,
     address: (formData.get("address") as string) || null,
     notes: (formData.get("notes") as string) || null,
-    // Checked box = "pays through escrow, don't nag" = reminders OFF.
+    // Checked box = "don't nag this client" = reminders OFF.
     payment_reminders: formData.get("no_payment_reminders") !== "on",
   };
   const { error } = await supabase.from("clients").update(payload).eq("id", id);

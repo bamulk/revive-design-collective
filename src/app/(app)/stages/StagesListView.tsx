@@ -22,7 +22,6 @@ export type StageRow = {
   destage_date: string | null;
   amount: number;
   paid_at: string | null;
-  escrow: boolean;
 };
 
 const STATUSES = [
@@ -34,7 +33,6 @@ const STATUSES = [
 ] as const;
 
 type PaidFilter = "any" | "paid" | "unpaid";
-type EscrowFilter = "any" | "yes";
 type YearFilter = "all" | "this" | "last";
 type SortKey =
   | "stage_date_desc"
@@ -68,7 +66,6 @@ export default function StagesListView({
     new Set(["scheduled", "staged", "destaged", "completed"]),
   );
   const [paid, setPaid] = useState<PaidFilter>("any");
-  const [escrow, setEscrow] = useState<EscrowFilter>("any");
   const [year, setYear] = useState<YearFilter>("all");
   const [sort, setSort] = useState<SortKey>("stage_date_desc");
 
@@ -80,7 +77,6 @@ export default function StagesListView({
   const deferredQuery = useDeferredValue(query);
   const deferredStatusSet = useDeferredValue(statusSet);
   const deferredPaid = useDeferredValue(paid);
-  const deferredEscrow = useDeferredValue(escrow);
   const deferredYear = useDeferredValue(year);
   const deferredSort = useDeferredValue(sort);
   const [, startTransition] = useTransition();
@@ -88,7 +84,6 @@ export default function StagesListView({
     query !== deferredQuery ||
     statusSet !== deferredStatusSet ||
     paid !== deferredPaid ||
-    escrow !== deferredEscrow ||
     year !== deferredYear ||
     sort !== deferredSort;
 
@@ -104,8 +99,6 @@ export default function StagesListView({
       // Paid / unpaid
       if (deferredPaid === "paid" && !s.paid_at) return false;
       if (deferredPaid === "unpaid" && s.paid_at) return false;
-      // Escrow
-      if (deferredEscrow === "yes" && !s.escrow) return false;
       // Year
       if (deferredYear !== "all") {
         const want =
@@ -129,7 +122,6 @@ export default function StagesListView({
     deferredQuery,
     deferredStatusSet,
     deferredPaid,
-    deferredEscrow,
     deferredYear,
     currentYear,
   ]);
@@ -176,7 +168,6 @@ export default function StagesListView({
       setQuery("");
       setStatusSet(new Set(["scheduled", "staged", "destaged", "completed"]));
       setPaid("any");
-      setEscrow("any");
       setYear("all");
     });
   }
@@ -184,7 +175,6 @@ export default function StagesListView({
   const anyActive =
     query.trim() !== "" ||
     paid !== "any" ||
-    escrow !== "any" ||
     year !== "all" ||
     statusSet.size !== 4 ||
     !["scheduled", "staged", "destaged", "completed"].every((k) =>
@@ -292,19 +282,6 @@ export default function StagesListView({
               }
             />
           )}
-          {isAdmin && (
-            <Segmented
-              label="Escrow"
-              value={escrow}
-              options={[
-                { v: "any", label: "Any" },
-                { v: "yes", label: "Yes" },
-              ]}
-              onChange={(v) =>
-                startTransition(() => setEscrow(v as EscrowFilter))
-              }
-            />
-          )}
           <Segmented
             label="Year"
             value={year}
@@ -384,11 +361,6 @@ export default function StagesListView({
                   </td>
                   <td className="p-3 space-x-1">
                     <StatusBadge status={s.status} />
-                    {s.escrow && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold ring-1 ring-inset bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:ring-violet-900/60">
-                        Escrow
-                      </span>
-                    )}
                   </td>
                   {isAdmin && (
                     <td className="p-3 text-right tabular-nums font-medium">
@@ -461,11 +433,6 @@ export default function StagesListView({
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <StatusBadge status={s.status} />
-              {s.escrow && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold ring-1 ring-inset bg-violet-50 text-violet-800 ring-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:ring-violet-900/60">
-                  Escrow
-                </span>
-              )}
               <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-auto tabular-nums">
                 {formatMDY(s.stage_date)}
               </span>

@@ -30,7 +30,7 @@ export default async function EditEstimatePage({
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, client_id, address, city, square_footage, bedrooms, bathrooms, zillow_url, primary_only, amount, package_key, add_ons, discount, escrow, travel_fee, line_items, stage_date, destage_date, stage_length_days, notes, status, secondary_recipient_name, secondary_recipient_email",
+      "id, client_id, address, city, square_footage, bedrooms, bathrooms, zillow_url, primary_only, amount, package_key, add_ons, discount, travel_fee, line_items, stage_date, destage_date, stage_length_days, notes, status, secondary_recipient_name, secondary_recipient_email",
     )
     .eq("id", id)
     .single();
@@ -170,7 +170,6 @@ export default async function EditEstimatePage({
         </label>
 
         <ExtraFeesFields
-          defaultEscrow={!!stage.escrow}
           defaultTravelFee={Number(stage.travel_fee ?? 0)}
         />
 

@@ -460,7 +460,6 @@ export default async function StageDetailPage({
             </span>
           </label>
           <ExtraFeesFields
-            defaultEscrow={!!stage.escrow}
             defaultTravelFee={Number(stage.travel_fee ?? 0)}
           />
           <div className="flex flex-col sm:flex-row gap-3">
@@ -500,14 +499,6 @@ export default async function StageDetailPage({
                   Status
                 </span>
                 <StatusBadge status={stage.status} />
-                {/* Escrow tag — only when this stage is being paid
-                    through escrow. Sits inline with the status pill so
-                    the crew sees it at a glance. */}
-                {stage.escrow && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-200 dark:bg-violet-900/40 dark:text-violet-200 dark:ring-violet-900/60">
-                    Escrow
-                  </span>
-                )}
                 {/* Zillow listing status — updated daily by the
                     listing-monitor cron. Pending / Contingent lights
                     up rose so the team sees the destage is coming. */}

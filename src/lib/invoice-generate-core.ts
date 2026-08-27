@@ -18,7 +18,7 @@ export async function generateInvoiceFor(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -54,7 +54,6 @@ export async function generateInvoiceFor(
       "Staging package includes staging for kitchen, bathrooms, primary bedroom, and outdoor living.",
   });
   const lineItems = pricing.lineItems;
-  const escrowOn = !!stage.escrow;
 
   const today = new Date().toISOString().slice(0, 10);
   const invoiceNumber = invoiceNumberFor(stage.id, today);
@@ -100,11 +99,7 @@ export async function generateInvoiceFor(
     lineItems,
     discount: pricing.discount,
     total: invoiceTotal,
-    // Payment terms — escrow stages don't pay on completion, the
-    // closing handles disbursement.
-    paymentTerms: escrowOn
-      ? "Payment due at close of escrow."
-      : "Payment due on the day of staging (unless paying through escrow).",
+    paymentTerms: "Payment due on the day of staging.",
     // The big Terms block at the bottom replaces the old free-form
     // paymentInstructions string.
     paymentInstructions: null,

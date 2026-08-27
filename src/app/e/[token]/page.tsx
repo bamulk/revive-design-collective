@@ -3,7 +3,6 @@ import Image from "next/image";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import {
   computePrice,
-  ESCROW_FEE,
   PACKAGE_INCLUDES,
   parseLineItems,
   sumLineItems,
@@ -73,16 +72,15 @@ export default async function EstimateAcceptPage({
     (estimate.add_ons ?? []) as SelectedAddOn[],
     Number(estimate.discount ?? 0)
   );
-  const escrowOn = !!estimate.escrow;
   const travelFee = Number(estimate.travel_fee ?? 0) || 0;
   const customLineItems = parseLineItems(estimate.line_items);
   const lineItemsTotal = sumLineItems(customLineItems);
   const estimateAmount = Number(estimate.amount ?? 0);
   // Recover the custom base staging charge (custom-price mode) by backing
-  // escrow + travel + line items out of the saved total.
+  // travel + line items out of the saved total.
   const customSubtotal = Math.max(
     0,
-    estimateAmount - (escrowOn ? ESCROW_FEE : 0) - travelFee - lineItemsTotal,
+    estimateAmount - travelFee - lineItemsTotal,
   );
   const isCustomPrice = !estimate.package_key && customSubtotal > 0;
   const lineItems = [
@@ -102,12 +100,12 @@ export default async function EstimateAcceptPage({
       amount: li.price,
     })),
   ];
-  // Services total shown to the client. Escrow + travel are billed on the
+  // Services total shown to the client. Travel is billed on the
   // final invoice (not surfaced on the estimate), so back them out of the
   // saved amount — this equals the listed items minus any discount.
   const servicesTotal = Math.max(
     0,
-    estimateAmount - (escrowOn ? ESCROW_FEE : 0) - travelFee,
+    estimateAmount - travelFee,
   );
 
   const isAccepted = !!estimate.estimate_accepted_at;

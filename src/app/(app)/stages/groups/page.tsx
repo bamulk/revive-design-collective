@@ -33,7 +33,7 @@ export default async function StagesGroupsPage() {
     supabase
       .from("stages")
       .select(
-        "id, address, city, neighborhood, amount, status, stage_date, destage_date, paid_at, lat, lng, square_footage, bedrooms, bathrooms, primary_only, team, destage_team, escrow, first_photo_storage_path, clients(name)"
+        "id, address, city, neighborhood, amount, status, stage_date, destage_date, paid_at, lat, lng, square_footage, bedrooms, bathrooms, primary_only, team, destage_team, first_photo_storage_path, clients(name)"
       )
       // Estimates live in their own /estimates page; hide them from the board.
       .neq("status", "estimate")
@@ -128,7 +128,6 @@ export default async function StagesGroupsPage() {
           | "white"
           | "little"
           | null) ?? null,
-      escrow: !!s.escrow,
     };
   });
 

@@ -20,7 +20,6 @@ import { buildStagePricing } from "@/lib/stage-pricing";
 import { randomBytes } from "node:crypto";
 import {
   computePrice,
-  ESCROW_FEE,
   normalizeTravelFee,
   parseLineItems,
   sumLineItems,
@@ -92,12 +91,9 @@ function defaultDestage(
  * amount server-side so the client can't send whatever total it wants.
  */
 function parsePricingFromForm(formData: FormData) {
-  // Escrow + travel-fee are independent of pricing mode — both add
+  // Travel fee is independent of pricing mode — it adds
   // flat amounts to the saved total and are recorded on the stage
-  // (stages.escrow, stages.travel_fee).
-  const escrow =
-    formData.get("escrow") === "on" || formData.get("escrow") === "true";
-  const escrowFee = escrow ? ESCROW_FEE : 0;
+  // (stages.travel_fee).
   const travelFee = normalizeTravelFee(formData.get("travel_fee"));
   // Custom line items add their prices to the saved total in either
   // pricing mode and are rendered on the estimate / contract / invoice.
@@ -116,10 +112,9 @@ function parsePricingFromForm(formData: FormData) {
         packageKey: null,
         addOns: [] as SelectedAddOn[],
         discount: 0,
-        escrow,
         travelFee,
         lineItems,
-        amount: n + escrowFee + travelFee + lineItemsTotal,
+        amount: n + travelFee + lineItemsTotal,
       };
     }
   }
@@ -148,10 +143,9 @@ function parsePricingFromForm(formData: FormData) {
     packageKey,
     addOns,
     discount: breakdown.discount,
-    escrow,
     travelFee,
     lineItems,
-    amount: breakdown.total + escrowFee + travelFee + lineItemsTotal,
+    amount: breakdown.total + travelFee + lineItemsTotal,
   };
 }
 
@@ -207,7 +201,6 @@ export async function createStageAction(formData: FormData) {
     package_key: pricing.packageKey,
     add_ons: pricing.addOns,
     discount: pricing.discount,
-    escrow: pricing.escrow,
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
     stage_date: stageDate,
@@ -309,7 +302,7 @@ export async function sendSignerChoiceEmail(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, city, stage_date, destage_date, stage_length_days, amount, package_key, add_ons, discount, escrow, travel_fee, line_items, handoff_token, client:clients(name, email)",
+      "id, address, city, stage_date, destage_date, stage_length_days, amount, package_key, add_ons, discount, travel_fee, line_items, handoff_token, client:clients(name, email)",
     )
     .eq("id", stageId)
     .single();
@@ -1361,7 +1354,6 @@ export async function updateStageAction(id: string, formData: FormData) {
     package_key: pricing.packageKey,
     add_ons: pricing.addOns,
     discount: pricing.discount,
-    escrow: pricing.escrow,
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
     stage_date: stageDate,

@@ -12,7 +12,6 @@ import { emailButton } from "@/lib/email-button";
 import {
   PACKAGES,
   ADD_ONS,
-  ESCROW_FEE,
   normalizeTravelFee,
   computePrice,
   parseLineItems,
@@ -28,9 +27,6 @@ function newToken(): string {
 // Same pricing parser as stages/actions.ts, copied to avoid a circular
 // import (server actions can only export async functions).
 function parsePricingFromForm(formData: FormData) {
-  const escrow =
-    formData.get("escrow") === "on" || formData.get("escrow") === "true";
-  const escrowFee = escrow ? ESCROW_FEE : 0;
   const travelFee = normalizeTravelFee(formData.get("travel_fee"));
   // Custom line items add their prices to the total in either pricing
   // mode and ride along on the estimate / contract / invoice.
@@ -46,10 +42,9 @@ function parsePricingFromForm(formData: FormData) {
         packageKey: null,
         addOns: [] as SelectedAddOn[],
         discount: 0,
-        escrow,
         travelFee,
         lineItems,
-        amount: n + escrowFee + travelFee + lineItemsTotal,
+        amount: n + travelFee + lineItemsTotal,
       };
     }
   }
@@ -78,10 +73,9 @@ function parsePricingFromForm(formData: FormData) {
     packageKey: validPackage,
     addOns: validAddOns,
     discount,
-    escrow,
     travelFee,
     lineItems,
-    amount: breakdown.total + escrowFee + travelFee + lineItemsTotal,
+    amount: breakdown.total + travelFee + lineItemsTotal,
   };
 }
 
@@ -166,7 +160,6 @@ export async function createEstimateAction(formData: FormData) {
     package_key: pricing.packageKey,
     add_ons: pricing.addOns,
     discount: pricing.discount,
-    escrow: pricing.escrow,
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
     stage_date: stageDateIn,
@@ -297,7 +290,6 @@ export async function updateEstimateAction(stageId: string, formData: FormData) 
     package_key: pricing.packageKey,
     add_ons: pricing.addOns,
     discount: pricing.discount,
-    escrow: pricing.escrow,
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
     stage_date: stageDateIn,

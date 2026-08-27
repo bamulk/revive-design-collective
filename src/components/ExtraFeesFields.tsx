@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  ESCROW_FEE,
   TRAVEL_FEES,
   normalizeTravelFee,
   PRICING_CATALOG_ENABLED,
@@ -10,33 +9,28 @@ import {
 } from "@/lib/pricing";
 
 /**
- * Escrow + travel-fee form controls. Lifted out of PackagePicker so
+ * Travel-fee form control. Lifted out of PackagePicker so
  * they can be positioned with the other stage options on each form
  * (new stage, edit stage, new estimate).
  *
  * Emits two hidden form fields, same names as before — server-side
  * parsePricingFromForm reads them unchanged:
- *   - escrow: "on" | ""
  *   - travel_fee: "0" | "200" | "300"
  */
 export default function ExtraFeesFields({
-  defaultEscrow = false,
   defaultTravelFee = 0,
 }: {
-  defaultEscrow?: boolean;
   defaultTravelFee?: number;
 }) {
-  const [escrow, setEscrow] = useState<boolean>(defaultEscrow);
   const [travelFee, setTravelFee] = useState<TravelFee>(
     normalizeTravelFee(defaultTravelFee),
   );
 
-  // Manual-amount-only mode: no escrow/travel UI. Emit the hidden fields
-  // at their neutral defaults so the server's pricing parser is unaffected.
+  // Manual-amount-only mode: no travel-fee UI. Emit the hidden field at
+  // its neutral default so the server's pricing parser is unaffected.
   if (!PRICING_CATALOG_ENABLED) {
     return (
       <>
-        <input type="hidden" name="escrow" value="" />
         <input type="hidden" name="travel_fee" value="0" />
       </>
     );
@@ -44,24 +38,7 @@ export default function ExtraFeesFields({
 
   return (
     <div className="space-y-3">
-      <input type="hidden" name="escrow" value={escrow ? "on" : ""} />
       <input type="hidden" name="travel_fee" value={String(travelFee)} />
-
-      {/* Escrow toggle */}
-      <label className="flex items-start gap-2 text-sm cursor-pointer">
-        <input
-          type="checkbox"
-          checked={escrow}
-          onChange={(e) => setEscrow(e.target.checked)}
-          className="mt-0.5 h-4 w-4 accent-brand"
-        />
-        <span>
-          Paying through escrow (+${ESCROW_FEE})
-          <span className="block text-xs text-slate-500 dark:text-slate-400">
-            Adds a flat ${ESCROW_FEE} escrow fee as its own line item.
-          </span>
-        </span>
-      </label>
 
       {/* Travel fee */}
       <div className="space-y-1.5">

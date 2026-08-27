@@ -23,7 +23,7 @@ export async function sendSignatureFromStage(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, escrow, travel_fee, line_items, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
     )
     .eq("id", stageId)
     .single();
