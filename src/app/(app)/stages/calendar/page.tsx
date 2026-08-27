@@ -2,7 +2,11 @@ import { PlusCircle, Home as HomeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
-import CalendarView, { type CalendarStage } from "./CalendarView";
+import CalendarEventsAdmin from "./CalendarEventsAdmin";
+import CalendarView, {
+  type CalendarStage,
+  type CalendarEvent,
+} from "./CalendarView";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +16,13 @@ export const dynamic = "force-dynamic";
  */
 export default async function CalendarPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+  const isAdmin = (me as { role?: string } | null)?.role === "admin";
   // Every non-cancelled/estimate stage ever (~800 and growing) — page
   // past the 1000-row cap.
   const stages = await fetchAllRows((from, to) =>
@@ -22,6 +33,19 @@ export default async function CalendarPage() {
       .order("id")
       .range(from, to),
   );
+
+  // Manual (non-stage) entries — holidays, warehouse days, vacations.
+  const { data: customRows } = await supabase
+    .from("calendar_events")
+    .select("id, title, event_date, end_date, note")
+    .order("event_date");
+  const customEvents: CalendarEvent[] = (customRows ?? []).map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    event_date: e.event_date,
+    end_date: e.end_date ?? null,
+    note: e.note ?? null,
+  }));
 
   const events: CalendarStage[] = (stages ?? []).map((s: any) => ({
     id: s.id,
@@ -48,7 +72,12 @@ export default async function CalendarPage() {
           </>
         }
       />
-      <CalendarView stages={events} />
+      {isAdmin && <CalendarEventsAdmin events={customEvents} />}
+      <CalendarView
+        stages={events}
+        events={customEvents}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

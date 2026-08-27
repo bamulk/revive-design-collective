@@ -13,13 +13,26 @@ export type CalendarStage = {
   client_name: string | null;
 };
 
-type View = "month" | "week";
-type Event = {
-  stage: CalendarStage;
-  kind: "stage" | "destage";
+export type CalendarEvent = {
+  id: string;
+  title: string;
   /** ISO yyyy-mm-dd */
-  date: string;
+  event_date: string;
+  /** Inclusive last day for multi-day entries; null = single day. */
+  end_date: string | null;
+  note: string | null;
 };
+
+type View = "month" | "week";
+/** A stage/destage pill, or a manual (non-stage) calendar entry. */
+type Event =
+  | {
+      kind: "stage" | "destage";
+      /** ISO yyyy-mm-dd */
+      date: string;
+      stage: CalendarStage;
+    }
+  | { kind: "custom"; date: string; event: CalendarEvent };
 
 // All date math uses UTC so the local timezone of the user doesn't
 // shift events to a neighboring day. stored stage_date / destage_date
@@ -65,7 +78,16 @@ function todayUTC(): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-export default function CalendarView({ stages }: { stages: CalendarStage[] }) {
+export default function CalendarView({
+  stages,
+  events = [],
+  isAdmin = false,
+}: {
+  stages: CalendarStage[];
+  /** Manual, non-stage entries. */
+  events?: CalendarEvent[];
+  isAdmin?: boolean;
+}) {
   const [view, setView] = useState<View>("week");
   const [anchor, setAnchor] = useState<Date>(() => todayUTC());
 
@@ -76,8 +98,18 @@ export default function CalendarView({ stages }: { stages: CalendarStage[] }) {
       if (s.destage_date)
         out.push({ stage: s, kind: "destage", date: s.destage_date });
     }
+    // Manual entries — a multi-day entry lands on every day it covers.
+    for (const ev of events) {
+      const last = ev.end_date && ev.end_date > ev.event_date ? ev.end_date : ev.event_date;
+      let d = ev.event_date;
+      // Cap the span so a bad end_date can't spin here forever.
+      for (let i = 0; i < 366 && d <= last; i++) {
+        out.push({ kind: "custom", date: d, event: ev });
+        d = toISO(addDays(new Date(`${d}T00:00:00Z`), 1));
+      }
+    }
     return out;
-  }, [stages]);
+  }, [stages, events]);
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, Event[]>();
@@ -88,9 +120,13 @@ export default function CalendarView({ stages }: { stages: CalendarStage[] }) {
     }
     // Sort each day: stages first, then destages, then alphabetical.
     for (const arr of map.values()) {
+      const rank = (e: Event) =>
+        e.kind === "custom" ? 0 : e.kind === "stage" ? 1 : 2;
       arr.sort((a, b) => {
-        if (a.kind !== b.kind) return a.kind === "stage" ? -1 : 1;
-        return a.stage.address.localeCompare(b.stage.address);
+        if (rank(a) !== rank(b)) return rank(a) - rank(b);
+        const al = a.kind === "custom" ? a.event.title : a.stage.address;
+        const bl = b.kind === "custom" ? b.event.title : b.stage.address;
+        return al.localeCompare(bl);
       });
     }
     return map;
@@ -334,6 +370,43 @@ function WeekList({
 }
 
 function EventChip({ event, expanded }: { event: Event; expanded?: boolean }) {
+  if (event.kind === "custom") {
+    // Sage = manual entry, so it reads distinctly from stage/destage.
+    return (
+      <div
+        className={`block ${
+          expanded ? "px-2 py-1.5" : "px-1.5 py-0.5"
+        } rounded text-[11px] border bg-brand/10 text-charcoal dark:text-cream border-brand/30`}
+        title={
+          event.event.note
+            ? `${event.event.title} — ${event.event.note}`
+            : event.event.title
+        }
+      >
+        <div className="flex items-start gap-1.5 min-w-0">
+          <span className="shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full bg-brand" />
+          <span className="font-medium truncate flex-1 leading-tight">
+            {event.event.title}
+          </span>
+        </div>
+        {expanded && event.event.note && (
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 ml-3 truncate">
+            {event.event.note}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return <StageChip event={event} expanded={expanded} />;
+}
+
+function StageChip({
+  event,
+  expanded,
+}: {
+  event: Extract<Event, { kind: "stage" | "destage" }>;
+  expanded?: boolean;
+}) {
   // Blue = Stage, Orange = Destage. Matches the Today section on the
   // dashboard so the color language is consistent across the app.
   const tone =
