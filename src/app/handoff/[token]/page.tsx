@@ -11,11 +11,11 @@ function admin() {
 }
 
 /**
- * Public agent-handoff page — no auth. The agent opens this from the
- * "not yours to sign?" email and enters the seller's name + email.
- * Identified by handoff_token; once used the token moves to
- * handoff_token_consumed so a refresh shows the "already handed off"
- * state instead of the form.
+ * Public signer-choice page — no auth. The agent opens this from the
+ * "who should sign?" email and picks: sign it themselves, or pass it to
+ * their seller. No agreement goes out until they choose. Identified by
+ * handoff_token; once used the token moves to handoff_token_consumed so
+ * a refresh shows the decided state instead of the chooser.
  */
 export default async function HandoffPage({
   params,
@@ -41,7 +41,7 @@ export default async function HandoffPage({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 sm:p-8 space-y-5">
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Send this staging to the seller
+              Who should sign?
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
               Staging at <strong>{active.address}</strong>
@@ -49,10 +49,9 @@ export default async function HandoffPage({
             </p>
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            If you&rsquo;d rather not take responsibility for this staging, enter
-            your seller&rsquo;s details below. We&rsquo;ll send the agreement to
-            them to sign, and they&rsquo;ll receive the invoice — you stay on the
-            job as the referring agent, without the paperwork.
+            Pick who takes this staging on. Whoever you choose receives the
+            agreement to sign and, once signed, the invoice. Nothing has been
+            sent yet.
           </p>
           <HandoffForm token={token} />
         </div>
@@ -68,21 +67,28 @@ export default async function HandoffPage({
     .maybeSingle();
 
   if (consumed) {
+    // No homeowner recorded means the agent kept it for themselves.
+    const seller = consumed.homeowner_name;
     return (
       <Shell>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-            Already handed off
+            Already decided
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            The staging at <strong>{consumed.address}</strong> has been sent to{" "}
-            {consumed.homeowner_name ? (
-              <strong>{consumed.homeowner_name}</strong>
+            {seller ? (
+              <>
+                The staging at <strong>{consumed.address}</strong> was sent to{" "}
+                <strong>{seller}</strong>. They sign the agreement and receive
+                the invoice — nothing further is needed from you.
+              </>
             ) : (
-              "the seller"
+              <>
+                The agreement for <strong>{consumed.address}</strong> was sent
+                to you to sign. Check your inbox — the invoice follows once
+                it&rsquo;s signed.
+              </>
             )}
-            . They sign the agreement and receive the invoice — nothing further
-            is needed from you.
           </p>
         </div>
       </Shell>

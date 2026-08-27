@@ -276,22 +276,14 @@ export async function createStageAction(formData: FormData) {
     stageAddress: payload.address,
     details: { status: payload.status },
   });
-  // Signature request is a best-effort side effect. If SIGNATURE_API_KEY
-  // is missing or the provider returns an error, the stage is already
-  // saved and the user should still land on the detail page. The admin
-  // can hit "Send signature" manually from there. Log and keep going.
+  // No signature goes out yet. The agent first picks who signs — either
+  // themselves or their seller — via the emailed choice link. Whichever
+  // they choose, that's who gets the agreement and the invoice.
+  // Best-effort; the email is resendable from the stage page.
   try {
-    await sendSignatureRequest(data.id);
+    await sendSignerChoiceEmail(data.id);
   } catch (e) {
-    console.error("[createStageAction] sendSignatureRequest failed:", e);
-  }
-  // Give the agent an out: a link to pass this stage to the seller. The
-  // agreement itself is emailed by SignatureAPI, so this is a separate
-  // note from us. Best-effort — resendable from the stage page.
-  try {
-    await sendHandoffEmailToAgent(data.id);
-  } catch (e) {
-    console.error("[createStageAction] sendHandoffEmailToAgent failed:", e);
+    console.error("[createStageAction] sendSignerChoiceEmail failed:", e);
   }
 
   revalidatePath("/stages");
@@ -299,13 +291,16 @@ export async function createStageAction(formData: FormData) {
 }
 
 /**
- * Email the agent (the stage's client) a link to the public handoff form
- * (/handoff/<token>), where they can pass the stage to the seller if they
- * don't want responsibility for it. Returns false (quietly) when email
- * isn't configured, the token is gone, the agent has no email, or the
- * stage has already been handed off.
+ * Email the agent (the stage's client) the signer-choice link. They pick
+ * either to sign it themselves or to pass it to their seller; only then
+ * does the agreement go out. Both email buttons land on the same page —
+ * the choice needs an explicit click there, so a link-prefetching mail
+ * scanner can never make the decision.
+ *
+ * Returns false (quietly) when email isn't configured, the choice has
+ * already been made, or the agent has no email on file.
  */
-export async function sendHandoffEmailToAgent(
+export async function sendSignerChoiceEmail(
   stageId: string,
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
@@ -327,49 +322,52 @@ export async function sendHandoffEmailToAgent(
   ).replace(/\/$/, "");
   const link = `${baseUrl}/handoff/${stage.handoff_token}`;
   const firstName = (agent.name || "there").split(/\s+/)[0] || "there";
-  const subject = `Staging for ${stage.address} — signing on behalf of your seller?`;
+  const subject = `Staging for ${stage.address} — who should sign?`;
   const text = `Hi ${firstName},
 
-The staging agreement for ${stage.address} is on its way to you to sign.
+The staging at ${stage.address} is booked. Before we send the agreement, let us know who's taking it on:
 
-If you'd rather your seller take it on, use the link below to send it to them instead. They'll sign the agreement and receive the invoice — you stay on the job as the referring agent, without the paperwork.
+1) Sign it yourself — you get the agreement and the invoice.
+2) Send it to your seller — they sign and pay, and you stay on as the referring agent.
 
-${link}
+Choose here: ${link}
 
-If you're happy to sign it yourself, just ignore this and sign the agreement as normal.
+We'll send the agreement as soon as you pick.
 
 Thanks!
 Revive Design Collective`;
   const html = `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:560px; margin:0 auto; padding:24px;">
   <p>Hi ${firstName},</p>
-  <p>The staging agreement for <strong>${stage.address}</strong> is on its way to you to sign.</p>
-  <p>If you&rsquo;d rather your seller take it on, send it to them instead. They&rsquo;ll sign the agreement and receive the invoice &mdash; you stay on the job as the referring agent, without the paperwork.</p>
-  ${emailButton({ href: link, label: "Send to the seller" })}
-  <p style="font-size:13px; color:#64748b;">Happy to sign it yourself? Just ignore this and sign the agreement as normal.</p>
+  <p>The staging at <strong>${stage.address}</strong> is booked. Before we send the agreement, let us know who&rsquo;s taking it on.</p>
+  ${emailButton({ href: `${link}#self`, label: "I'll sign it myself" })}
+  <p style="font-size:13px; color:#64748b; margin-top:-8px;">You receive the agreement and the invoice.</p>
+  ${emailButton({ href: `${link}#seller`, label: "Send it to my seller", bg: "#5f6b5a" })}
+  <p style="font-size:13px; color:#64748b; margin-top:-8px;">They sign and pay &mdash; you stay on as the referring agent.</p>
+  <p style="font-size:13px; color:#64748b;">The agreement goes out as soon as you choose. Nothing is sent before that.</p>
   <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
 </body></html>`;
   try {
     await sendEmail({ to: agent.email, subject, text, html });
     return true;
   } catch (e) {
-    console.error("[sendHandoffEmailToAgent] failed:", e);
+    console.error("[sendSignerChoiceEmail] failed:", e);
     return false;
   }
 }
 
-/** Admin action: re-send the agent's handoff link from the stage page. */
+/** Admin action: re-send the agent's signer-choice email. */
 export async function resendHandoffEmailAction(
   id: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const sent = await sendHandoffEmailToAgent(id);
+    const sent = await sendSignerChoiceEmail(id);
     if (!sent) {
       return {
         ok: false,
         error:
-          "Couldn't send — the stage may already be handed off, or the agent has no email on file.",
+          "Couldn't send — the agent may have already chosen, or has no email on file.",
       };
     }
     revalidatePath(`/stages/${id}`);

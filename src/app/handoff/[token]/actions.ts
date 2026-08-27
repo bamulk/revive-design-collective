@@ -16,12 +16,68 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export type HandoffResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Public (no-auth) submit for the agent handoff form. The agent enters
- * the seller's name + email; we store them as the stage's recipient
- * override, consume the token, and send a FRESH agreement naming the
- * seller as the signing party. The old envelope is superseded — the
- * stage's signature_envelope_id is overwritten, so even if someone
- * signs the stale one the webhook won't match it to this stage.
+ * The agent keeps the stage: they sign and pay. Consumes the token and
+ * sends the agreement to them. Nothing was sent before this point.
+ */
+export async function keepForSelfAction(token: string): Promise<HandoffResult> {
+  try {
+    const t = (token || "").trim();
+    if (t.length < 16) return { ok: false, error: "Invalid link." };
+
+    const sb = admin();
+    const { data: stage } = await sb
+      .from("stages")
+      .select("id, client:clients(email)")
+      .eq("handoff_token", t)
+      .maybeSingle();
+    if (!stage) {
+      return {
+        ok: false,
+        error: "This link has already been used or is no longer valid.",
+      };
+    }
+    const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
+    if (!(client as { email?: string | null } | null)?.email) {
+      return {
+        ok: false,
+        error:
+          "We don't have an email on file for you — please contact us and we'll sort it out.",
+      };
+    }
+
+    // No homeowner override: the stage's client (the agent) stays the
+    // signer and payer. Stamp the decision + consume the token.
+    const { error: upErr } = await sb
+      .from("stages")
+      .update({
+        handoff_completed_at: new Date().toISOString(),
+        handoff_token: null,
+        handoff_token_consumed: t,
+      })
+      .eq("id", stage.id);
+    if (upErr) return { ok: false, error: upErr.message };
+
+    if (isSignatureConfigured()) {
+      try {
+        await sendSignatureFromStage(sb as never, stage.id);
+      } catch (e) {
+        console.error("[keepForSelfAction] signature send failed:", e);
+      }
+    }
+
+    revalidatePath(`/handoff/${t}`);
+    return { ok: true };
+  } catch (e: any) {
+    console.error("keepForSelfAction failed:", e);
+    return { ok: false, error: e?.message || "Something went wrong." };
+  }
+}
+
+/**
+ * The agent passes the stage to their seller. Stores the seller as the
+ * stage's recipient override, consumes the token, and sends them the
+ * agreement — which then names the seller as the signing party, and
+ * whose invoice goes to them too.
  */
 export async function submitHandoffAction(input: {
   token: string;
@@ -75,8 +131,9 @@ export async function submitHandoffAction(input: {
       .eq("id", stage.id);
     if (upErr) return { ok: false, error: upErr.message };
 
-    // Fresh agreement to the seller. Best-effort: the handoff is already
-    // recorded, and staff can resend from the stage page if this fails.
+    // Send the agreement to the seller. Nothing went out before this
+    // choice. Best-effort: the decision is recorded either way, and
+    // staff can resend from the stage page if this fails.
     if (isSignatureConfigured()) {
       try {
         await sendSignatureFromStage(sb as never, stage.id);

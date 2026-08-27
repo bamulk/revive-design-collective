@@ -28,13 +28,14 @@ export default function HandoffSection({
   const [msg, setMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const decided = !!completedAt;
   const handedOff = !!(sellerEmail && completedAt);
 
   function resend() {
     setMsg(null);
     startTransition(async () => {
       const r = await resendHandoffEmailAction(stageId);
-      setMsg(r.ok ? "Handoff link sent to the agent." : r.error || "Failed.");
+      setMsg(r.ok ? "Choice email sent to the agent." : r.error || "Failed.");
     });
   }
 
@@ -54,13 +55,22 @@ export default function HandoffSection({
     <section className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
       <div className="flex items-center gap-2">
         <ArrowRightLeft size={15} className="text-slate-500" />
-        <h2 className="font-medium">Seller handoff</h2>
+        <h2 className="font-medium">Signer</h2>
       </div>
 
-      {handedOff ? (
+      {decided && !handedOff ? (
+        <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+          <p className="font-medium text-slate-900 dark:text-slate-100">
+            {agentName ?? "The agent"} is signing
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            They kept it — the agreement and invoice go to them.
+          </p>
+        </div>
+      ) : handedOff ? (
         <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
           <p>
-            {agentName ?? "The agent"} handed this stage to the seller:
+            {agentName ?? "The agent"} passed this stage to the seller:
           </p>
           <p className="font-medium text-slate-900 dark:text-slate-100">
             {sellerName}{" "}
@@ -75,9 +85,8 @@ export default function HandoffSection({
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-slate-700 dark:text-slate-300">
-            {agentName ?? "The agent"} is signing and paying. They were emailed
-            a link to pass this to the seller instead, if they&rsquo;d rather not
-            take it on.
+            Waiting on {agentName ?? "the agent"} to choose who signs — them or
+            their seller. <strong>No agreement has been sent yet.</strong>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -91,7 +100,7 @@ export default function HandoffSection({
               ) : (
                 <RefreshCw size={14} />
               )}
-              Resend handoff link
+              Resend choice email
             </button>
             {handoffToken && (
               <button
@@ -100,7 +109,7 @@ export default function HandoffSection({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? "Copied" : "Copy handoff link"}
+                {copied ? "Copied" : "Copy choice link"}
               </button>
             )}
           </div>
