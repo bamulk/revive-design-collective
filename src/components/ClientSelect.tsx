@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { UserPlus, Search, X, Check, ChevronDown } from "lucide-react";
 import ImportContactButton from "./ImportContactButton";
 
-type ClientOption = { id: string; name: string };
+type ClientOption = { id: string; name: string; email?: string | null };
 
 /**
  * Client-picker with a toggle to create a new client inline.
@@ -48,7 +48,7 @@ export default function ClientSelect({
     if (!q) return clients;
     const tokens = q.split(/\s+/);
     return clients.filter((c) => {
-      const hay = c.name.toLowerCase();
+      const hay = `${c.name} ${c.email ?? ""}`.toLowerCase();
       return tokens.every((t) => hay.includes(t));
     });
   }, [clients, query]);
@@ -118,7 +118,19 @@ export default function ClientSelect({
             }`}
           >
             <span className="truncate">
-              {selected?.name ?? "Select client…"}
+              {selected ? (
+                <>
+                  {selected.name}
+                  {selected.email ? (
+                    <span className="text-slate-500 dark:text-slate-400">
+                      {" "}
+                      ({selected.email})
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                "Select client…"
+              )}
             </span>
             <ChevronDown
               size={16}
@@ -188,7 +200,15 @@ export default function ClientSelect({
                             size={14}
                             className={isSel ? "text-brand" : "opacity-0"}
                           />
-                          <span className="truncate">{c.name}</span>
+                          <span className="truncate">
+                            {c.name}
+                            {c.email ? (
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {" "}
+                                ({c.email})
+                              </span>
+                            ) : null}
+                          </span>
                         </button>
                       </li>
                     );

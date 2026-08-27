@@ -25,7 +25,7 @@ export default async function NewEstimatePage({
   const clients = await fetchAllRows((from, to) =>
     supabase
       .from("clients")
-      .select("id, name")
+      .select("id, name, email")
       .order("name")
       .order("id")
       .range(from, to),
