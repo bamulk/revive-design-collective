@@ -9,7 +9,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TEMPLATE, type ContractTemplate, type ContractTerm } from "./contract-template";
 import { buildStagePricing } from "@/lib/stage-pricing";
 import { generateInvoicePdf, invoiceNumberFor } from "./invoice-pdf";
-import { PACKAGE_INCLUDES as packageIncludes } from "./pricing";
 
 export async function generateInvoiceFor(
   supabase: SupabaseClient,
@@ -49,10 +48,9 @@ export async function generateInvoiceFor(
     // ignore — defaults are fine
   }
 
-  const pricing = buildStagePricing(stage, {
-    packageNote:
-      "Staging package includes staging for kitchen, bathrooms, primary bedroom, and outdoor living.",
-  });
+  // No package-scope sub-line under the staging line item for now —
+  // pass { packageNote: PACKAGE_INCLUDES } here to bring it back.
+  const pricing = buildStagePricing(stage);
   const lineItems = pricing.lineItems;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -103,10 +101,9 @@ export async function generateInvoiceFor(
     // The big Terms block at the bottom replaces the old free-form
     // paymentInstructions string.
     paymentInstructions: null,
-    // Scope of work — pulled from the shared PACKAGE_INCLUDES constant
-    // so it stays in sync with the public estimate + contract PDF.
-    // Custom-priced invoices (no package selected) skip this.
-    packageIncludesNote: pricing.isCustomPrice ? null : packageIncludes,
+    // Scope-of-work block is off on invoices for now — restore with
+    // `pricing.isCustomPrice ? null : PACKAGE_INCLUDES`.
+    packageIncludesNote: null,
     terms: [
       "Additional 30-day extensions available for 50% of the original stage amount.",
       "Seller is responsible for replacement cost of stolen or damaged property.",
