@@ -7,15 +7,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TEMPLATE, type ContractTemplate, type ContractTerm } from "./contract-template";
+import { buildStagePricing } from "@/lib/stage-pricing";
 import { generateInvoicePdf, invoiceNumberFor } from "./invoice-pdf";
-import {
-  computePrice,
-  ESCROW_FEE,
-  PACKAGE_INCLUDES as packageIncludes,
-  parseLineItems,
-  sumLineItems,
-  type SelectedAddOn,
-} from "./pricing";
+import { PACKAGE_INCLUDES as packageIncludes } from "./pricing";
 
 export async function generateInvoiceFor(
   supabase: SupabaseClient,
@@ -55,78 +49,16 @@ export async function generateInvoiceFor(
     // ignore — defaults are fine
   }
 
-  const breakdown = computePrice(
-    stage.package_key,
-    (stage.add_ons ?? []) as SelectedAddOn[],
-    Number(stage.discount ?? 0)
-  );
-  // Custom-priced stages (no package_key, but a saved amount) get a
-  // single "Home staging" line item so the invoice PDF still renders
-  // a coherent total. Escrow surcharge (when enabled) is appended as
-  // its own line item regardless of pricing mode.
-  const stageAmount = Number(stage.amount ?? 0);
+  const pricing = buildStagePricing(stage, {
+    packageNote:
+      "Staging package includes staging for kitchen, bathrooms, primary bedroom, and outdoor living.",
+  });
+  const lineItems = pricing.lineItems;
   const escrowOn = !!stage.escrow;
-  const travelFee = Number(stage.travel_fee ?? 0) || 0;
-  // Custom line items render between the package/custom base and the
-  // escrow/travel fees.
-  const customLineItems = parseLineItems(stage.line_items);
-  const lineItemsTotal = sumLineItems(customLineItems);
-  // For custom price the saved amount already includes escrow + travel +
-  // line items, so back them all out to recover the base staging charge.
-  const customSubtotal = Math.max(
-    0,
-    stageAmount - (escrowOn ? ESCROW_FEE : 0) - travelFee - lineItemsTotal,
-  );
-  const isCustomPrice = !stage.package_key && customSubtotal > 0;
-  // Sub-note printed under the staging-package line item so the
-  // homeowner sees what's included.
-  const PACKAGE_NOTE =
-    "Staging package includes staging for kitchen, bathrooms, primary bedroom, and outdoor living.";
-  const lineItems = [
-    ...(isCustomPrice
-      ? [
-          {
-            label: "Home staging",
-            amount: customSubtotal,
-            notes: PACKAGE_NOTE,
-          },
-        ]
-      : [
-          ...(breakdown.package
-            ? [
-                {
-                  label: breakdown.package.label,
-                  amount: breakdown.package.price,
-                  notes: PACKAGE_NOTE,
-                },
-              ]
-            : []),
-          ...breakdown.addOns.map((a) => ({
-            label: `${a.addOn.label} × ${a.qty}`,
-            amount: a.subtotal,
-          })),
-        ]),
-    ...customLineItems.map((li) => ({
-      label: li.description,
-      amount: li.price,
-    })),
-    ...(escrowOn
-      ? [{ label: "Escrow payment fee", amount: ESCROW_FEE }]
-      : []),
-    ...(travelFee > 0
-      ? [{ label: "Travel fee", amount: travelFee }]
-      : []),
-  ];
 
   const today = new Date().toISOString().slice(0, 10);
   const invoiceNumber = invoiceNumberFor(stage.id, today);
-  // Custom-priced stages skip the catalog breakdown so we fall back
-  // to stage.amount (which already includes escrow + travel). For
-  // package-priced stages, breakdown.total is exclusive of those two
-  // so we add them back here.
-  const invoiceTotal = isCustomPrice
-    ? stageAmount
-    : breakdown.total + (escrowOn ? ESCROW_FEE : 0) + travelFee + lineItemsTotal;
+  const invoiceTotal = pricing.total;
 
   const c = client as {
     name: string;
@@ -166,7 +98,7 @@ export async function generateInvoiceFor(
         ? stage.stage_length_days
         : 60,
     lineItems,
-    discount: isCustomPrice ? 0 : breakdown.discount,
+    discount: pricing.discount,
     total: invoiceTotal,
     // Payment terms — escrow stages don't pay on completion, the
     // closing handles disbursement.
@@ -179,7 +111,7 @@ export async function generateInvoiceFor(
     // Scope of work — pulled from the shared PACKAGE_INCLUDES constant
     // so it stays in sync with the public estimate + contract PDF.
     // Custom-priced invoices (no package selected) skip this.
-    packageIncludesNote: isCustomPrice ? null : packageIncludes,
+    packageIncludesNote: pricing.isCustomPrice ? null : packageIncludes,
     terms: [
       "Additional 30-day extensions available for 50% of the original stage amount.",
       "Seller is responsible for replacement cost of stolen or damaged property.",

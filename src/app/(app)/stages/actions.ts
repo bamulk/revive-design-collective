@@ -16,6 +16,7 @@ import { sendSignatureFromStage } from "@/lib/signature-send-core";
 import { generateInvoiceFor } from "@/lib/invoice-generate-core";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
 import { emailButton } from "@/lib/email-button";
+import { buildStagePricing } from "@/lib/stage-pricing";
 import { randomBytes } from "node:crypto";
 import {
   computePrice,
@@ -307,7 +308,9 @@ export async function sendSignerChoiceEmail(
   const supabase = await createClient();
   const { data: stage } = await supabase
     .from("stages")
-    .select("id, address, handoff_token, client:clients(name, email)")
+    .select(
+      "id, address, city, stage_date, destage_date, stage_length_days, amount, package_key, add_ons, discount, escrow, travel_fee, line_items, handoff_token, client:clients(name, email)",
+    )
     .eq("id", stageId)
     .single();
   if (!stage?.handoff_token) return false;
@@ -323,14 +326,43 @@ export async function sendSignerChoiceEmail(
   const link = `${baseUrl}/handoff/${stage.handoff_token}`;
   const firstName = (agent.name || "there").split(/\s+/)[0] || "there";
   const subject = `Staging for ${stage.address} — who should sign?`;
+
+  // Same itemization the contract and invoice print, so the agent sees
+  // exactly what's being agreed to before they choose.
+  const pricing = buildStagePricing(stage);
+  const money = (n: number) =>
+    `$${n.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  const propertyLine = [stage.address, stage.city].filter(Boolean).join(", ");
+  const dateLines: string[] = [];
+  if (stage.stage_date) dateLines.push(`Stage date: ${formatMDY(stage.stage_date)}`);
+  if (stage.destage_date)
+    dateLines.push(`Destage date: ${formatMDY(stage.destage_date)}`);
+  if (stage.stage_length_days)
+    dateLines.push(`Rental period: ${stage.stage_length_days} days`);
+
+  const itemsText = pricing.lineItems
+    .map((li) => `  • ${li.label} — ${money(li.amount)}`)
+    .join("\n");
+  const discountText =
+    pricing.discount > 0 ? `\n  • Discount — -${money(pricing.discount)}` : "";
+
   const text = `Hi ${firstName},
 
-The staging at ${stage.address} is booked. Before we send the agreement, let us know who's taking it on:
+The staging at ${propertyLine} is booked. Before we send the agreement, let us know who's taking it on:
 
 1) Sign it yourself — you get the agreement and the invoice.
 2) Send it to your seller — they sign and pay, and you stay on as the referring agent.
 
 Choose here: ${link}
+
+--- Stage details ---
+Property: ${propertyLine}${dateLines.length ? "\n" + dateLines.join("\n") : ""}
+
+${itemsText}${discountText}
+  Total: ${money(pricing.total)}
 
 We'll send the agreement as soon as you pick.
 
@@ -345,6 +377,32 @@ Revive Design Collective`;
   ${emailButton({ href: `${link}#seller`, label: "Send it to my seller", bg: "#5f6b5a" })}
   <p style="font-size:13px; color:#64748b; margin-top:-8px;">They sign and pay &mdash; you stay on as the referring agent.</p>
   <p style="font-size:13px; color:#64748b;">The agreement goes out as soon as you choose. Nothing is sent before that.</p>
+
+  <div style="border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin:24px 0;">
+    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:10px;">Stage details</div>
+    <div style="font-weight:600; color:#0f172a;">${propertyLine}</div>
+    ${
+      dateLines.length
+        ? `<div style="font-size:13px; color:#475569; margin-top:4px;">${dateLines.join(" &middot; ")}</div>`
+        : ""
+    }
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:14px; font-size:14px;">
+      ${pricing.lineItems
+        .map(
+          (li) =>
+            `<tr><td style="padding:4px 0; color:#334155;">${li.label}</td><td style="padding:4px 0; text-align:right; color:#0f172a; white-space:nowrap;">${money(li.amount)}</td></tr>`,
+        )
+        .join("")}
+      ${
+        pricing.discount > 0
+          ? `<tr><td style="padding:4px 0; color:#334155;">Discount</td><td style="padding:4px 0; text-align:right; color:#0f172a; white-space:nowrap;">-${money(pricing.discount)}</td></tr>`
+          : ""
+      }
+      <tr><td colspan="2" style="border-top:1px solid #e2e8f0; padding-top:8px;"></td></tr>
+      <tr><td style="padding:4px 0; font-weight:600; color:#0f172a;">Total</td><td style="padding:4px 0; text-align:right; font-weight:600; color:#0f172a; white-space:nowrap;">${money(pricing.total)}</td></tr>
+    </table>
+  </div>
+
   <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
 </body></html>`;
   try {

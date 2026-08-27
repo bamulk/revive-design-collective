@@ -7,20 +7,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createEnvelope } from "./signature";
+import { buildStagePricing } from "@/lib/stage-pricing";
 import { generateContractPdf } from "./contract-pdf";
 import {
   DEFAULT_TEMPLATE,
   type ContractTemplate,
   type ContractTerm,
 } from "./contract-template";
-import {
-  computePrice,
-  ESCROW_FEE,
-  PACKAGE_INCLUDES,
-  parseLineItems,
-  sumLineItems,
-  type SelectedAddOn,
-} from "./pricing";
+import { PACKAGE_INCLUDES } from "./pricing";
 
 export async function sendSignatureFromStage(
   supabase: SupabaseClient,
@@ -85,54 +79,8 @@ export async function sendSignatureFromStage(
     // Fall back to defaults — better than blocking the signature send.
   }
 
-  const breakdown = computePrice(
-    stage.package_key,
-    (stage.add_ons ?? []) as SelectedAddOn[],
-    Number(stage.discount ?? 0)
-  );
-  // Custom-priced stages (no package_key but a saved amount) get a
-  // single "Home staging" line item instead of the catalog breakdown
-  // so the contract PDF still renders the correct total. Escrow fee
-  // (when enabled) is appended as its own line item regardless of
-  // pricing mode.
-  const stageAmount = Number(stage.amount ?? 0);
-  const escrowOn = !!stage.escrow;
-  const travelFee = Number(stage.travel_fee ?? 0) || 0;
-  const customLineItems = parseLineItems(stage.line_items);
-  const lineItemsTotal = sumLineItems(customLineItems);
-  const customSubtotal = Math.max(
-    0,
-    stageAmount - (escrowOn ? ESCROW_FEE : 0) - travelFee - lineItemsTotal,
-  );
-  const isCustomPrice = !stage.package_key && customSubtotal > 0;
-  const lineItems = [
-    ...(isCustomPrice
-      ? [{ label: "Home staging", amount: customSubtotal }]
-      : [
-          ...(breakdown.package
-            ? [
-                {
-                  label: breakdown.package.label,
-                  amount: breakdown.package.price,
-                },
-              ]
-            : []),
-          ...breakdown.addOns.map((a) => ({
-            label: `${a.addOn.label} × ${a.qty}`,
-            amount: a.subtotal,
-          })),
-        ]),
-    ...customLineItems.map((li) => ({
-      label: li.description,
-      amount: li.price,
-    })),
-    ...(escrowOn
-      ? [{ label: "Escrow payment fee", amount: ESCROW_FEE }]
-      : []),
-    ...(travelFee > 0
-      ? [{ label: "Travel fee", amount: travelFee }]
-      : []),
-  ];
+  const pricing = buildStagePricing(stage);
+  const lineItems = pricing.lineItems;
 
   // Optional second signer (homeowner / co-payer). Both must sign for
   // the envelope to finalize; their signature field is rendered on the
@@ -162,10 +110,10 @@ export async function sendSignatureFromStage(
     secondaryRecipientName: hasSecondary ? secondaryName : null,
     stageId: stage.id,
     lineItems,
-    discount: isCustomPrice ? 0 : breakdown.discount,
+    discount: pricing.discount,
     intro: template.intro,
     terms: template.terms,
-    packageIncludesNote: breakdown.package ? PACKAGE_INCLUDES : null,
+    packageIncludesNote: pricing.hasPackage ? PACKAGE_INCLUDES : null,
   });
 
   const path = `${stage.id}/${Date.now()}-${crypto.randomUUID()}.pdf`;
