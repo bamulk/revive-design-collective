@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import StagePhotoGrid from "@/components/StagePhotoGrid";
+import { isR2Configured, isR2Path, presignDownloadMany } from "@/lib/r2";
 import StagePhotoUploader from "@/components/StagePhotoUploader";
 import {
   uploadStagePhotoAction,
   deleteStagePhotoAction,
   attachStageVideoAction,
+  createVideoUploadUrlAction,
 } from "@/app/(app)/stages/actions";
 import { THUMB, FULL } from "@/lib/photo-urls";
 import { signThumbsCached, signPlainCached } from "@/lib/sign-thumbs";
@@ -38,18 +40,28 @@ export default async function StagePhotos({
   const imagePaths = rows
     .filter((p) => p.media_type !== "video")
     .map((p) => p.storage_path);
-  const videoPaths = rows
+  const allVideoPaths = rows
     .filter((p) => p.media_type === "video")
     .map((p) => p.storage_path);
+  // Videos may live in Supabase (legacy / no R2 configured) or in R2.
+  const videoPaths = allVideoPaths.filter((p) => !isR2Path(p));
+  const r2VideoPaths = allVideoPaths.filter(isR2Path);
 
   // Images: Pro image-transform URLs (small webp thumbs for the grid,
   // capped 1920px for the lightbox). Videos: plain signed URLs — the
   // transforms only work on images, and the <video> element streams the
   // original. All three sign in parallel.
-  const [thumbByPath, fullByPath, videoByPath] = await Promise.all([
+  const [thumbByPath, fullByPath, supabaseVideoByPath, r2VideoByPath] =
+    await Promise.all([
     signThumbsCached("stage-photos", imagePaths, THUMB),
     signThumbsCached("stage-photos", imagePaths, FULL),
     signPlainCached("stage-photos", videoPaths),
+    presignDownloadMany(r2VideoPaths),
+  ]);
+
+  const videoByPath = new Map([
+    ...supabaseVideoByPath,
+    ...r2VideoByPath,
   ]);
 
   const signed = rows.map((p) => {
@@ -68,9 +80,12 @@ export default async function StagePhotos({
 
   const uploadPhoto = uploadStagePhotoAction.bind(null, stageId);
   const attachVideo = attachStageVideoAction.bind(null, stageId);
+  // With R2 configured, videos bypass Supabase's per-file ceiling.
+  const r2On = isR2Configured();
+  const maxVideoBytes = r2On ? 2 * 1024 * 1024 * 1024 : 50 * 1024 * 1024;
 
   const photoCount = imagePaths.length;
-  const videoCount = videoPaths.length;
+  const videoCount = allVideoPaths.length;
   const subtitle =
     videoCount > 0
       ? `${photoCount} photo${photoCount === 1 ? "" : "s"} · ${videoCount} video${videoCount === 1 ? "" : "s"}`
@@ -86,6 +101,8 @@ export default async function StagePhotos({
       <StagePhotoUploader
         action={uploadPhoto}
         videoAction={attachVideo}
+        videoUploadUrlAction={r2On ? createVideoUploadUrlAction : undefined}
+        maxVideoBytes={maxVideoBytes}
         stageId={stageId}
       />
       <StagePhotoGrid

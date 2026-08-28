@@ -19,6 +19,14 @@ import { emailButton } from "@/lib/email-button";
 import { buildStagePricing } from "@/lib/stage-pricing";
 import { randomBytes } from "node:crypto";
 import {
+  isR2Configured,
+  isR2Path,
+  presignUpload,
+  r2Key,
+  deleteR2Object,
+  R2_PREFIX,
+} from "@/lib/r2";
+import {
   computePrice,
   normalizeTravelFee,
   parseLineItems,
@@ -1451,12 +1459,23 @@ export async function deleteStageAction(id: string) {
       .from("stage_photos")
       .select("storage_path")
       .eq("stage_id", id);
-    const paths = (photos ?? [])
+    const allPaths = (photos ?? [])
       .map((p) => p.storage_path)
       .filter(Boolean) as string[];
+    const paths = allPaths.filter((p) => !isR2Path(p));
     if (paths.length > 0) {
       await supabase.storage.from("stage-photos").remove(paths);
     }
+    // Videos live in R2 — delete those individually.
+    await Promise.all(
+      allPaths
+        .filter(isR2Path)
+        .map((p) =>
+          deleteR2Object(r2Key(p)).catch((e) =>
+            console.error("[r2] delete failed:", e),
+          ),
+        ),
+    );
   } catch (e) {
     console.warn("deleteStageAction: photo cleanup skipped:", e);
   }
@@ -1542,14 +1561,37 @@ async function saveStagePhoto(
  * then calls this to insert the metadata row. We don't move any bytes
  * here; we just validate the path and stamp the row as a video.
  */
+/**
+ * Mint a presigned R2 upload URL for a stage video. The browser PUTs the
+ * file straight to R2 (bytes never touch our server), then calls
+ * attachStageVideoAction with the returned storagePath.
+ *
+ * Returns null when R2 isn't configured — the caller then falls back to
+ * uploading into Supabase Storage.
+ */
+export async function createVideoUploadUrlAction(
+  stageId: string,
+  fileName: string,
+  contentType: string,
+): Promise<{ uploadUrl: string; storagePath: string } | null> {
+  await requireTeamMember();
+  if (!isR2Configured()) return null;
+  const safe = (fileName || "video").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const key = `${stageId}/${Date.now()}-${safe}`;
+  const uploadUrl = await presignUpload(key, contentType || "video/mp4");
+  return { uploadUrl, storagePath: `${R2_PREFIX}${key}` };
+}
+
 export async function attachStageVideoAction(
   stageId: string,
   storagePath: string,
 ) {
   const { userId } = await requireTeamMember();
-  // The client builds the path as `${stageId}/...`; reject anything that
-  // doesn't live under this stage so a row can't be pointed elsewhere.
-  if (!storagePath || !storagePath.startsWith(`${stageId}/`)) {
+  // The client builds the path as `${stageId}/...` (optionally behind the
+  // r2: marker); reject anything that doesn't live under this stage so a
+  // row can't be pointed elsewhere.
+  const rawPath = isR2Path(storagePath) ? r2Key(storagePath) : storagePath;
+  if (!storagePath || !rawPath.startsWith(`${stageId}/`)) {
     throw new Error("Invalid upload path");
   }
   const supabase = await createClient();
@@ -2044,7 +2086,15 @@ export async function deleteStagePhotoAction(photoId: string, stageId: string) {
     .eq("id", photoId)
     .single();
   if (photo?.storage_path) {
-    await supabase.storage.from("stage-photos").remove([photo.storage_path]);
+    if (isR2Path(photo.storage_path)) {
+      try {
+        await deleteR2Object(r2Key(photo.storage_path));
+      } catch (e) {
+        console.error("[r2] delete failed:", e);
+      }
+    } else {
+      await supabase.storage.from("stage-photos").remove([photo.storage_path]);
+    }
   }
   await supabase.from("stage_photos").delete().eq("id", photoId);
   revalidatePath(`/stages/${stageId}`);

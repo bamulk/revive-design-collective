@@ -48,11 +48,24 @@ type Item = {
 export default function StagePhotoUploader({
   action,
   videoAction,
+  videoUploadUrlAction,
+  maxVideoBytes = MAX_VIDEO_BYTES,
   stageId,
 }: {
   action: (formData: FormData) => Promise<void> | void;
   /** Records a video already uploaded to Storage. Enables video picking. */
   videoAction?: (storagePath: string) => Promise<void> | void;
+  /**
+   * Mints a presigned R2 upload URL. When supplied (R2 configured), videos
+   * go to R2 and the 50 MB Supabase ceiling doesn't apply.
+   */
+  videoUploadUrlAction?: (
+    stageId: string,
+    fileName: string,
+    contentType: string,
+  ) => Promise<{ uploadUrl: string; storagePath: string } | null>;
+  /** Max video size in bytes. Defaults to the Supabase-plan ceiling. */
+  maxVideoBytes?: number;
   /** Required for video uploads — used to namespace the storage path. */
   stageId?: string;
 }) {
@@ -100,7 +113,7 @@ export default function StagePhotoUploader({
       previewUrl = null;
     }
 
-    if (rawFile.size > MAX_VIDEO_BYTES) {
+    if (rawFile.size > maxVideoBytes) {
       setItems((prev) => [
         ...prev,
         {
@@ -110,7 +123,7 @@ export default function StagePhotoUploader({
           previewUrl,
           status: "error",
           error: `Video is too large (max ${Math.round(
-            MAX_VIDEO_BYTES / (1024 * 1024),
+            maxVideoBytes / (1024 * 1024),
           )} MB).`,
         },
       ]);
@@ -123,28 +136,49 @@ export default function StagePhotoUploader({
     ]);
 
     const safe = rawFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${stageId}/${Date.now()}-${safe}`;
+    const contentType = rawFile.type || "video/mp4";
+    const supabasePath = `${stageId}/${Date.now()}-${safe}`;
     const supabase = createClient();
-    let uploaded = false;
+    // Where the bytes actually landed, so a failed metadata write can be
+    // rolled back against the right store.
+    let uploadedTo: "r2" | "supabase" | null = null;
+    let recordedPath = supabasePath;
     try {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, rawFile, {
-          contentType: rawFile.type || "video/mp4",
-          upsert: false,
+      // Prefer R2 when it's configured — it has no 50 MB ceiling.
+      const presigned = videoUploadUrlAction
+        ? await videoUploadUrlAction(stageId!, safe, contentType)
+        : null;
+
+      if (presigned) {
+        const res = await fetch(presigned.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: rawFile,
         });
-      if (error) throw new Error(error.message);
-      uploaded = true;
+        if (!res.ok) {
+          throw new Error(`Upload failed (${res.status})`);
+        }
+        uploadedTo = "r2";
+        recordedPath = presigned.storagePath;
+      } else {
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(supabasePath, rawFile, { contentType, upsert: false });
+        if (error) throw new Error(error.message);
+        uploadedTo = "supabase";
+      }
+
       // Record the metadata row (separate server-action round-trip).
-      await videoAction!(path);
+      await videoAction!(recordedPath);
       removeItem(id);
     } catch (e: any) {
       // The bytes uploaded but recording the row failed — roll back the
-      // now-orphaned object so it doesn't sit in the bucket unreferenced
-      // (nothing else ever cleans up a row-less object).
-      if (uploaded) {
+      // now-orphaned object so it doesn't sit unreferenced (nothing else
+      // ever cleans up a row-less object). R2 orphans are left to the
+      // server-side delete path; we can't sign a DELETE from here.
+      if (uploadedTo === "supabase") {
         try {
-          await supabase.storage.from(BUCKET).remove([path]);
+          await supabase.storage.from(BUCKET).remove([supabasePath]);
         } catch {
           // Best-effort; leave the orphan rather than masking the real error.
         }
