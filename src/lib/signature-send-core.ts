@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createEnvelope } from "./signature";
 import { buildStagePricing } from "@/lib/stage-pricing";
+import { stagedRoomsSummary } from "@/lib/staged-rooms";
 import { generateContractPdf } from "./contract-pdf";
 import {
   DEFAULT_TEMPLATE,
@@ -22,7 +23,7 @@ export async function sendSignatureFromStage(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -112,9 +113,9 @@ export async function sendSignatureFromStage(
     discount: pricing.discount,
     intro: template.intro,
     terms: template.terms,
-    // Scope-of-work block is off on the agreement for now — restore with
-    // `pricing.hasPackage ? PACKAGE_INCLUDES : null`.
-    packageIncludesNote: null,
+    // Scope of work — the rooms picked on the stage form. Null when
+    // none are checked, so the block simply doesn't render.
+    packageIncludesNote: stagedRoomsSummary((stage as any).staged_rooms),
   });
 
   const path = `${stage.id}/${Date.now()}-${crypto.randomUUID()}.pdf`;

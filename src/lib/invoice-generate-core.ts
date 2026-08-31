@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TEMPLATE, type ContractTemplate, type ContractTerm } from "./contract-template";
 import { buildStagePricing } from "@/lib/stage-pricing";
+import { stagedRoomsSummary } from "@/lib/staged-rooms";
 import { generateInvoicePdf, invoiceNumberFor } from "./invoice-pdf";
 
 export async function generateInvoiceFor(
@@ -17,7 +18,7 @@ export async function generateInvoiceFor(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -48,9 +49,12 @@ export async function generateInvoiceFor(
     // ignore — defaults are fine
   }
 
-  // No package-scope sub-line under the staging line item for now —
-  // pass { packageNote: PACKAGE_INCLUDES } here to bring it back.
-  const pricing = buildStagePricing(stage);
+  // The picked rooms print as the scope sub-line under the staging line
+  // item (null when none are checked, so nothing renders).
+  const roomsNote = stagedRoomsSummary((stage as any).staged_rooms);
+  const pricing = buildStagePricing(stage, {
+    ...(roomsNote ? { packageNote: roomsNote } : {}),
+  });
   const lineItems = pricing.lineItems;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -106,6 +110,7 @@ export async function generateInvoiceFor(
     packageIncludesNote: null,
     terms: [
       "Additional 30-day extensions available for 50% of the original stage amount.",
+      "Client agrees to exercise all due care in keeping, caring for, and preserving the furnishings. Cleaning fee starts at $600.",
       "Seller is responsible for replacement cost of stolen or damaged property.",
       "$100 fee if staging team cannot access house the day of staging or destaging.",
       "Revive Design Collective reserves the right to destage after contract time has ended.",
