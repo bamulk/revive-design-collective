@@ -23,7 +23,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "Payment",
-      body: "Payment is due upon completion of staging — on the day the staging is installed, not on any later invoice date. Please make checks payable to Revive Design Collective — Revive Design Co., 220 Sandburg Dr, Sacramento, CA 95819. Zelle: 530-251-3898 (Williams Real Estate Services).",
+      body: "Payment is due upon completion of staging \u2014 on the day the staging is installed, not on any later invoice date. Please make checks payable to: Revive Design Collective. Zelle: 530-251-3898 (Williams Real Estate Services).",
     },
     {
       title: "De-Staging",
@@ -43,7 +43,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "Loss or Damage",
-      body: "Client shall remain responsible for all loss or damage to the furnishings while they are on the property, up to and including actual replacement value for each missing or damaged item.",
+      body: "Client shall remain responsible for all loss or damages to the furnishings while they are on the property; up to and including actual replacement value for each missing or damaged item.",
     },
     {
       title: "Publicity",
@@ -51,23 +51,23 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "No Pets",
-      body: "No pets. For occupied staging, a cleaning fee will be charged if the furniture is returned with pet hair, dirt, or any stains. Please cover all staging furniture with linens.",
+      body: "NO PETS. Occupied staging \u2014 a cleaning fee will be charged if the furniture is returned with pet hair, dirt, or any stains. Please cover all staging furniture with linens.",
     },
     {
       title: "Cancellation",
-      body: "We book 2-3 weeks in advance and your stage is part of a chain of events. If you decide to cancel, there will be a $1,000 fee.",
+      body: "Cancellation fee \u2014 please note that we book 2-3 weeks in advance and your stage is part of a chain of events; if you decide to cancel, there will be a $1,000 fee.",
     },
     {
       title: "Home Readiness",
-      body: "The home must be clean prior to staging.",
+      body: "Home must be clean prior to staging.",
     },
     {
       title: "Property Access",
-      body: "Only Revive Design Collective is allowed on the property during staging and de-staging. The presence of contractors slows down the process and workflow of our team.",
+      body: "Only Revive Design Co is allowed on the property during staging and de-staging. The presence of contractors slows down the process and workflow of our team.",
     },
     {
       title: "Lockbox & Hours",
-      body: "Due to real estate timelines, a contractor lockbox is required on site for the move-in and move-out. We are unable to meet realtors at the property at a specific time. Please note that we start as early as 7am and do not work past 1pm.",
+      body: "We work hard to provide staging for a number of clients in the same timeframe. Due to real estate timelines, a contractor lockbox is required to be on site for the move in and the move out. We are unable to meet realtors at the property at a specific time. Please note that we start as early as 7am and do not work past 1pm.",
     },
   ],
 };

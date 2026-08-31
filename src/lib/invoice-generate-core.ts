@@ -110,11 +110,20 @@ export async function generateInvoiceFor(
     packageIncludesNote: null,
     terms: [
       "Additional 30-day extensions available for 50% of the original stage amount.",
-      "Client agrees to exercise all due care in keeping, caring for, and preserving the furnishings. Cleaning fee starts at $600.",
-      "Seller is responsible for replacement cost of stolen or damaged property.",
       "$100 fee if staging team cannot access house the day of staging or destaging.",
       "Revive Design Collective reserves the right to destage after contract time has ended.",
-      "Make checks payable to Revive Design Collective.",
+      "Please make checks payable to: Revive Design Collective.",
+      "Zelle: 530-251-3898 (Williams Real Estate Services).",
+      "Client agrees the selection of furnishings is at the sole discretion of the stager.",
+      "Client agrees that the furnishings are owned and leased by Revive Design Collective for display purposes only. While on the property, furnishings are to remain staged and are not to be used in any other fashion.",
+      "Client agrees to exercise all due care in keeping, caring for, and preserving the furnishings. Cleaning fee starts at $600.",
+      "Client shall remain responsible for all loss or damages to the furnishings while they are on the property; up to and including actual replacement value for each missing or damaged item.",
+      "Client agrees that photographs from the listing may be used for publicity on Revive Design Collective social media sites, website, and other marketing materials.",
+      "NO PETS. Occupied staging \u2014 a cleaning fee will be charged if the furniture is returned with pet hair, dirt, or any stains. Please cover all staging furniture with linens.",
+      "Cancellation fee \u2014 please note that we book 2-3 weeks in advance and your stage is part of a chain of events; if you decide to cancel, there will be a $1,000 fee.",
+      "Home must be clean prior to staging.",
+      "Only Revive Design Co is allowed on the property during staging and de-staging. The presence of contractors slows down the process and workflow of our team.",
+      "We work hard to provide staging for a number of clients in the same timeframe. Due to real estate timelines, a contractor lockbox is required to be on site for the move in and the move out. We are unable to meet realtors at the property at a specific time. Please note that we start as early as 7am and do not work past 1pm.",
     ],
   });
 
