@@ -15,7 +15,7 @@ export type ContractTemplate = {
 export const DEFAULT_TEMPLATE: ContractTemplate = {
   company_name: "Revive Design Collective",
   intro:
-    "The following rooms will be staged: Living Room, Dining Room, Kitchen, Primary Bedroom, and Bathrooms. In addition to what is outlined above, rooms will include artwork, mirrors, centerpieces, plants, throw pillows, and room accessories.",
+    "In addition to the rooms staged, each room includes artwork, mirrors, centerpieces, plants, throw pillows, and room accessories.",
   terms: [
     {
       title: "Staging Fee & Term",
