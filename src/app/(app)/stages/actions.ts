@@ -42,6 +42,7 @@ import {
   normalizeStageLength,
 } from "@/lib/stage-length";
 import { logActivity } from "@/lib/activity-log";
+import { parseStagedRooms } from "@/lib/staged-rooms";
 
 /**
  * Default destage = stage_date + 60 days. House staging contracts run
@@ -240,6 +241,7 @@ export async function createStageAction(formData: FormData) {
       ((formData.get("secondary_recipient_email") as string) || "")
         .trim()
         .toLowerCase() || null,
+    staged_rooms: parseStagedRooms(formData.get("staged_rooms")),
     // Seller-handoff link. Minted up front so the agent's "not yours to
     // sign?" email can carry it; consumed only if they use it.
     handoff_token: randomBytes(24).toString("base64url"),
@@ -1364,6 +1366,7 @@ export async function updateStageAction(id: string, formData: FormData) {
     discount: pricing.discount,
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
+    staged_rooms: parseStagedRooms(formData.get("staged_rooms")),
     stage_date: stageDate,
     destage_date: destageDate,
     stage_length_days: stageLengthDays,

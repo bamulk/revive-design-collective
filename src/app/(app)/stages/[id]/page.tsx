@@ -46,6 +46,7 @@ import InlineStageFields, {
 import BackLink from "@/components/BackLink";
 import ExtraFeesFields from "@/components/ExtraFeesFields";
 import CustomLineItemsFields from "@/components/CustomLineItemsFields";
+import StagedRoomsFields from "@/components/StagedRoomsFields";
 import AdvanceStatusButton from "@/components/AdvanceStatusButton";
 import StatusControl from "@/components/StatusControl";
 import StageClientControl from "@/components/StageClientControl";
@@ -60,6 +61,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getWarehouseCoords, haversineMiles } from "@/lib/distance";
 import { formatMDY } from "@/lib/time";
 import { parseLineItems, type SelectedAddOn } from "@/lib/pricing";
+import { parseStagedRooms } from "@/lib/staged-rooms";
 
 export default async function StageDetailPage({
   params,
@@ -390,6 +392,9 @@ export default async function StageDetailPage({
                 defaultItems={parseLineItems(stage.line_items)}
               />
             }
+          />
+          <StagedRoomsFields
+            defaultRooms={parseStagedRooms(stage.staged_rooms)}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

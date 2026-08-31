@@ -8,6 +8,7 @@ import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import BackLink from "@/components/BackLink";
 import ExtraFeesFields from "@/components/ExtraFeesFields";
 import CustomLineItemsFields from "@/components/CustomLineItemsFields";
+import StagedRoomsFields from "@/components/StagedRoomsFields";
 import SecondaryRecipientFields from "@/components/SecondaryRecipientFields";
 import SubmitButton from "@/components/SubmitButton";
 import { requireAdmin } from "@/lib/require-admin";
@@ -61,6 +62,7 @@ export default async function NewStagePage({
         </label>
         <PropertyDetailsFields />
         <PackagePicker beforeSummary={<CustomLineItemsFields />} />
+        <StagedRoomsFields />
 
         <label className="block text-sm">
           Stage date

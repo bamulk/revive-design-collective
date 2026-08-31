@@ -1972,3 +1972,12 @@ create policy calendar_events_read on public.calendar_events
 drop policy if exists calendar_events_admin_write on public.calendar_events;
 create policy calendar_events_admin_write on public.calendar_events
   for all to authenticated using (is_admin()) with check (is_admin());
+
+-- ============================================================
+-- 068_stage_staged_rooms.sql
+-- ============================================================
+-- Which rooms/areas this stage covers. Picked as checkboxes on the New
+-- Stage form (and editable on the stage page); stored as a jsonb array
+-- of keys from STAGED_ROOMS in src/lib/staged-rooms.ts.
+alter table public.stages
+  add column if not exists staged_rooms jsonb not null default '[]'::jsonb;
