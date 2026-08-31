@@ -3,22 +3,22 @@
  * form and stored on stages.staged_rooms as a jsonb array of
  * { key, qty } — e.g. [{ "key": "bedrooms", "qty": 3 }].
  *
- * Countable rooms (bedrooms, outdoor areas) render a quantity picker and
- * print as "3 bedrooms"; the rest are simple checkboxes printing their
- * plain label.
+ * Every room carries a quantity — large houses may have several of any
+ * of them. One prints as a plain name ("Living room"), more than one
+ * takes the count and the plural ("3 bedrooms").
  *
  * Keys are stable — change a label freely, but renaming a key orphans
  * the selections already saved against it.
  */
 export const STAGED_ROOMS = [
-  { key: "living_room", label: "Living room", countable: false, defaultQty: 1 },
-  { key: "dining_room", label: "Dining room", countable: false, defaultQty: 1 },
-  { key: "den", label: "Den", countable: false, defaultQty: 1 },
-  { key: "kitchen", label: "Kitchen", countable: false, defaultQty: 1 },
-  { key: "bedrooms", label: "Bedrooms", countable: true, defaultQty: 3 },
-  { key: "bathrooms", label: "Bathrooms", countable: false, defaultQty: 1 },
-  { key: "outdoor", label: "Outdoor areas", countable: true, defaultQty: 2 },
-  { key: "guesthouse", label: "Guesthouse", countable: false, defaultQty: 1 },
+  { key: "living_room", label: "Living room", singular: "living room", plural: "living rooms", defaultQty: 1 },
+  { key: "dining_room", label: "Dining room", singular: "dining room", plural: "dining rooms", defaultQty: 1 },
+  { key: "den", label: "Den", singular: "den", plural: "dens", defaultQty: 1 },
+  { key: "kitchen", label: "Kitchen", singular: "kitchen", plural: "kitchens", defaultQty: 1 },
+  { key: "bedrooms", label: "Bedrooms", singular: "bedroom", plural: "bedrooms", defaultQty: 3 },
+  { key: "bathrooms", label: "Bathrooms", singular: "bathroom", plural: "bathrooms", defaultQty: 1 },
+  { key: "outdoor", label: "Outdoor areas", singular: "outdoor area", plural: "outdoor areas", defaultQty: 2 },
+  { key: "guesthouse", label: "Guesthouse", singular: "guesthouse", plural: "guesthouses", defaultQty: 1 },
 ] as const;
 
 export type StagedRoomKey = (typeof STAGED_ROOMS)[number]["key"];
@@ -71,9 +71,10 @@ export function parseStagedRooms(raw: unknown): StagedRoom[] {
     }
     const def = BY_KEY.get(key);
     if (!def) continue;
-    const clamped = def.countable
-      ? Math.min(MAX_QTY, Math.max(1, Math.round(qty) || def.defaultQty))
-      : 1;
+    const clamped = Math.min(
+      MAX_QTY,
+      Math.max(1, Math.round(qty) || def.defaultQty),
+    );
     byKey.set(key, clamped);
   }
 
@@ -92,8 +93,12 @@ export function parseStagedRooms(raw: unknown): StagedRoom[] {
 export function stagedRoomLabels(raw: unknown): string[] {
   return parseStagedRooms(raw).map(({ key, qty }) => {
     const def = BY_KEY.get(key)!;
-    if (!def.countable) return def.label;
-    return `${qty} ${def.label.toLowerCase()}`;
+    // One reads as a plain name ("Living room"); more than one takes the
+    // count and the plural ("3 bedrooms").
+    if (qty === 1) {
+      return def.singular.charAt(0).toUpperCase() + def.singular.slice(1);
+    }
+    return `${qty} ${def.plural}`;
   });
 }
 

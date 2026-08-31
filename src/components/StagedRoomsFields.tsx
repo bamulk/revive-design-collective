@@ -4,9 +4,9 @@ import { useState } from "react";
 import { STAGED_ROOMS, type StagedRoom } from "@/lib/staged-rooms";
 
 /**
- * Checkbox list of the rooms / areas a stage covers. Countable rooms
- * (bedrooms, outdoor areas) get a quantity box once checked. Emits one
- * hidden field the server action reads:
+ * Checkbox list of the rooms / areas a stage covers. Each checked room
+ * gets a quantity box — large houses may have several of any of them.
+ * Emits one hidden field the server action reads:
  *   - staged_rooms: JSON-encoded [{ key, qty }]
  */
 export default function StagedRoomsFields({
@@ -73,7 +73,7 @@ export default function StagedRoomsFields({
                   {r.label}
                 </span>
               </label>
-              {on && r.countable && (
+              {on && (
                 <input
                   type="number"
                   min={1}
