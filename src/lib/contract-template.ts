@@ -23,7 +23,7 @@ export const DEFAULT_TEMPLATE: ContractTemplate = {
     },
     {
       title: "Payment",
-      body: "Payment is due upon completion of staging \u2014 on the day the staging is installed, not on any later invoice date. Please make checks payable to: Revive Design Collective. Zelle: 530-251-3898 (Williams Real Estate Services).",
+      body: "Payment is due upon completion of staging \u2014 on the day the staging is installed, not on any later invoice date. Please make checks payable to: Revive Design Collective, 220 Sandburg Drive, Sacramento, CA 95819. Zelle: 530-251-3898 (Williams Real Estate Services).",
     },
     {
       title: "De-Staging",

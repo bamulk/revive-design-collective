@@ -17,7 +17,7 @@ export type StagePaymentRow = {
   created_at: string;
 };
 
-const METHODS = ["check", "cash", "zelle", "venmo", "card", "other"] as const;
+const METHODS = ["check", "cash", "zelle", "card", "other"] as const;
 type Method = (typeof METHODS)[number];
 
 function fmtMoney(n: number) {

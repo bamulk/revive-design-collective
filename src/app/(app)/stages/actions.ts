@@ -1093,7 +1093,7 @@ export type MarkPaidResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Stamp the stage as paid. Admin-only. `formData` carries:
- *   - method: one of check/cash/zelle/venmo/card/other
+ *   - method: one of check/cash/zelle/card/other
  *   - paid_at: ISO date (defaults to today)
  */
 /**
@@ -1133,7 +1133,7 @@ export async function markPaidAction(
       Math.max(Number(stage.amount ?? 0) - paidSoFar, 0);
 
     const methodRaw = String(formData.get("method") || "").toLowerCase();
-    const allowed = ["check", "cash", "zelle", "venmo", "card", "other"];
+    const allowed = ["check", "cash", "zelle", "card", "other"];
     const method = allowed.includes(methodRaw) ? methodRaw : "other";
     const paidAtRaw = String(formData.get("paid_at") || "").trim();
     const paidAt = /^\d{4}-\d{2}-\d{2}$/.test(paidAtRaw)
@@ -1237,7 +1237,7 @@ export async function recordStagePaymentAction(
       ? paidAtRaw
       : new Date().toISOString().slice(0, 10);
     const methodRaw = String(formData.get("method") || "").toLowerCase();
-    const allowed = ["check", "cash", "zelle", "venmo", "card", "other"];
+    const allowed = ["check", "cash", "zelle", "card", "other"];
     const method = allowed.includes(methodRaw) ? methodRaw : null;
     const note = String(formData.get("note") || "").trim() || null;
 

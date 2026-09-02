@@ -102,7 +102,7 @@ export async function sendInvoiceEmailFor(
       `Hi ${greeting},\n\nThanks for choosing Revive Design Collective. ` +
       `Your invoice for ${stage.address} is attached as a PDF:\n\n${pdfUrl}\n\n` +
       `Total: $${total}` +
-      "\n\nPayment by check / cash / Zelle / Venmo — details on the invoice." +
+      "\n\nPayment by check / cash / Zelle — details on the invoice." +
       `\n\nReach out if you have any questions.\n\nRevive Design Collective`;
 
     const html = `
@@ -123,7 +123,7 @@ export async function sendInvoiceEmailFor(
           <strong>Total: $${escapeHtml(total)}</strong>
         </p>
         <p style="color:#475569; font-size: 14px;">
-          Payment by check / cash / Zelle / Venmo — details on the invoice.
+          Payment by check / cash / Zelle — details on the invoice.
         </p>
         <p style="color:#475569; font-size: 14px;">
           Reach out if you have any questions.

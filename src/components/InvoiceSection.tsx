@@ -25,7 +25,6 @@ const METHODS = [
   { value: "check", label: "Check" },
   { value: "cash", label: "Cash" },
   { value: "zelle", label: "Zelle" },
-  { value: "venmo", label: "Venmo" },
   { value: "card", label: "Card" },
   { value: "other", label: "Other" },
 ];

@@ -424,7 +424,7 @@ async function sendEstimateEmailFor(
       `Hi ${greeting},\n\nHere's your staging estimate for ${stage.address}. ` +
       `Please review and accept or decline:\n\n${acceptUrl}\n\n` +
       `Estimated total: $${total}` +
-      "\n\nOnce accepted, we'll send an invoice. Payment by check / cash / Zelle / Venmo." +
+      "\n\nOnce accepted, we'll send an invoice. Payment by check / cash / Zelle." +
       `\n\nReach out if you have any questions.\n\nRevive Design Collective`;
 
     const html = `
@@ -438,7 +438,7 @@ async function sendEstimateEmailFor(
         ${emailButton({ href: acceptUrl, label: "Review estimate" })}
         <p><strong>Estimated total: $${escapeHtml(total)}</strong></p>
         <p style="color:#475569; font-size: 14px;">
-          Once accepted, we'll send an invoice. Payment by check / cash / Zelle / Venmo.
+          Once accepted, we'll send an invoice. Payment by check / cash / Zelle.
         </p>
         <p style="color:#475569; font-size: 14px;">
           Reach out if you have any questions.

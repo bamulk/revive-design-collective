@@ -112,7 +112,7 @@ export async function generateInvoiceFor(
       "Additional 30-day extensions available for 50% of the original stage amount.",
       "$100 fee if staging team cannot access house the day of staging or destaging.",
       "Revive Design Collective reserves the right to destage after contract time has ended.",
-      "Please make checks payable to: Revive Design Collective.",
+      "Please make checks payable to: Revive Design Collective, 220 Sandburg Drive, Sacramento, CA 95819.",
       "Zelle: 530-251-3898 (Williams Real Estate Services).",
       "Client agrees the selection of furnishings is at the sole discretion of the stager.",
       "Client agrees that the furnishings are owned and leased by Revive Design Collective for display purposes only. While on the property, furnishings are to remain staged and are not to be used in any other fashion.",

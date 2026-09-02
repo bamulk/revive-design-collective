@@ -151,7 +151,7 @@ function digestEmail(opts: {
     .join("\n");
   const text =
     `Hi ${greeting},\n\n${intro}\n\n${textItems}\n\n` +
-    `Payment by check / cash / Zelle / Venmo — details on each invoice.` +
+    `Payment by check / cash / Zelle — details on each invoice.` +
     `\n\nIf you've already sent payment, please disregard this — and thank you!\n\nRevive Design Collective`;
 
   const htmlItems = items
@@ -174,7 +174,7 @@ function digestEmail(opts: {
       <p>${escapeHtml(intro)}</p>
       ${htmlItems}
       <p style="color:#475569; font-size: 14px;">
-        Payable by check / cash / Zelle / Venmo — details on each invoice.
+        Payable by check / cash / Zelle — details on each invoice.
       </p>
       <p style="color:#475569; font-size: 14px;">
         If you&rsquo;ve already sent payment, please disregard this — and thank you!
