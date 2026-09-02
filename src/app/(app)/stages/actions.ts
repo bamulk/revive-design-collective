@@ -329,7 +329,7 @@ export async function sendSignerChoiceEmail(
   ).replace(/\/$/, "");
   const link = `${baseUrl}/handoff/${stage.handoff_token}`;
   const firstName = (agent.name || "there").split(/\s+/)[0] || "there";
-  const subject = `Staging for ${stage.address} — who should sign?`;
+  const subject = `Staging for ${stage.address} — who should sign`;
 
   // Same itemization the contract and invoice print, so the agent sees
   // exactly what's being agreed to before they choose.
