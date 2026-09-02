@@ -396,6 +396,19 @@ export default async function StageDetailPage({
           <StagedRoomsFields
             defaultRooms={parseStagedRooms(stage.staged_rooms)}
           />
+          <label className="block text-sm">
+            Note for the agent
+            <textarea
+              name="agent_note"
+              rows={3}
+              defaultValue={stage.agent_note ?? ""}
+              placeholder="Anything the agent should know — appears in the email they receive."
+              className="mt-1 w-full border rounded px-3 py-2.5 text-base"
+            />
+            <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Shown in the agent&rsquo;s email. The Notes box stays internal.
+            </span>
+          </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block text-sm">

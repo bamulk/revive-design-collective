@@ -42,7 +42,7 @@ import {
   normalizeStageLength,
 } from "@/lib/stage-length";
 import { logActivity } from "@/lib/activity-log";
-import { parseStagedRooms } from "@/lib/staged-rooms";
+import { parseStagedRooms, stagedRoomLabels } from "@/lib/staged-rooms";
 
 /**
  * Default destage = stage_date + 60 days. House staging contracts run
@@ -242,6 +242,7 @@ export async function createStageAction(formData: FormData) {
         .trim()
         .toLowerCase() || null,
     staged_rooms: parseStagedRooms(formData.get("staged_rooms")),
+    agent_note: ((formData.get("agent_note") as string) || "").trim() || null,
     // Seller-handoff link. Minted up front so the agent's "not yours to
     // sign?" email can carry it; consumed only if they use it.
     handoff_token: randomBytes(24).toString("base64url"),
@@ -312,7 +313,7 @@ export async function sendSignerChoiceEmail(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, city, stage_date, destage_date, stage_length_days, amount, package_key, add_ons, discount, travel_fee, line_items, handoff_token, client:clients(name, email)",
+      "id, address, city, stage_date, destage_date, stage_length_days, amount, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, agent_note, handoff_token, client:clients(name, email)",
     )
     .eq("id", stageId)
     .single();
@@ -346,6 +347,19 @@ export async function sendSignerChoiceEmail(
   if (stage.stage_length_days)
     dateLines.push(`Rental period: ${stage.stage_length_days} days`);
 
+  const rooms = stagedRoomLabels((stage as any).staged_rooms);
+  const agentNote =
+    typeof (stage as any).agent_note === "string"
+      ? (stage as any).agent_note.trim()
+      : "";
+  // Same terms the agreement prints, so nothing is a surprise at signing.
+  let terms: { title: string; body: string }[] = [];
+  try {
+    terms = (await getContractTemplate()).terms;
+  } catch {
+    // Terms are a nice-to-have here — never block the email.
+  }
+
   const itemsText = pricing.lineItems
     .map((li) => `  • ${li.label} — ${money(li.amount)}`)
     .join("\n");
@@ -362,11 +376,19 @@ The staging at ${propertyLine} is booked. Before we send the agreement, let us k
 Choose here: ${link}
 
 --- Stage details ---
-Property: ${propertyLine}${dateLines.length ? "\n" + dateLines.join("\n") : ""}
+Property: ${propertyLine}${dateLines.length ? "\n" + dateLines.join("\n") : ""}${
+    rooms.length ? `\nRooms staged: ${rooms.join(", ")}` : ""
+  }
 
 ${itemsText}${discountText}
   Total: ${money(pricing.total)}
-
+${agentNote ? `\nNote: ${agentNote}\n` : ""}${
+    terms.length
+      ? `\n--- Terms ---\n` +
+        terms.map((t, i) => `${i + 1}. ${t.title}. ${t.body}`).join("\n\n") +
+        "\n"
+      : ""
+  }
 We'll send the agreement as soon as you pick.
 
 Thanks!
@@ -389,6 +411,11 @@ Revive Design Collective`;
         ? `<div style="font-size:13px; color:#475569; margin-top:4px;">${dateLines.join(" &middot; ")}</div>`
         : ""
     }
+    ${
+      rooms.length
+        ? `<div style="font-size:13px; color:#475569; margin-top:8px;"><strong>Rooms staged:</strong> ${rooms.join(", ")}</div>`
+        : ""
+    }
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:14px; font-size:14px;">
       ${pricing.lineItems
         .map(
@@ -405,6 +432,28 @@ Revive Design Collective`;
       <tr><td style="padding:4px 0; font-weight:600; color:#0f172a;">Total</td><td style="padding:4px 0; text-align:right; font-weight:600; color:#0f172a; white-space:nowrap;">${money(pricing.total)}</td></tr>
     </table>
   </div>
+
+  ${
+    agentNote
+      ? `<div style="border-left:3px solid #7c8b76; padding:2px 0 2px 12px; margin:20px 0; font-size:14px; color:#334155;"><strong>Note:</strong> ${agentNote}</div>`
+      : ""
+  }
+
+  ${
+    terms.length
+      ? `<div style="margin:24px 0;">
+    <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:#64748b; margin-bottom:10px;">Terms</div>
+    <ol style="margin:0; padding-left:20px; font-size:13px; color:#475569; line-height:1.6;">
+      ${terms
+        .map(
+          (t) =>
+            `<li style="margin-bottom:8px;"><strong style="color:#0f172a;">${t.title}.</strong> ${t.body}</li>`,
+        )
+        .join("")}
+    </ol>
+  </div>`
+      : ""
+  }
 
   <p style="font-size:12px; color:#94a3b8;">Revive Design Collective</p>
 </body></html>`;
@@ -1367,6 +1416,7 @@ export async function updateStageAction(id: string, formData: FormData) {
     travel_fee: pricing.travelFee,
     line_items: pricing.lineItems,
     staged_rooms: parseStagedRooms(formData.get("staged_rooms")),
+    agent_note: ((formData.get("agent_note") as string) || "").trim() || null,
     stage_date: stageDate,
     destage_date: destageDate,
     stage_length_days: stageLengthDays,

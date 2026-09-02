@@ -63,6 +63,19 @@ export default async function NewStagePage({
         <PropertyDetailsFields />
         <PackagePicker beforeSummary={<CustomLineItemsFields />} />
         <StagedRoomsFields />
+        <label className="block text-sm">
+          Note for the agent
+          <textarea
+            name="agent_note"
+            rows={3}
+            placeholder="Anything the agent should know — appears in the email they receive."
+            className="mt-1 w-full border rounded px-3 py-2.5 text-base"
+          />
+          <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Shown in the agent&rsquo;s email. Leave blank to omit it. (The
+            Notes box below stays internal.)
+          </span>
+        </label>
 
         <label className="block text-sm">
           Stage date

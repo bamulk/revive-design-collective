@@ -114,10 +114,24 @@ export async function generateContractPdf(
   const black = rgb(0.1, 0.1, 0.12);
   const muted = rgb(0.35, 0.38, 0.45);
 
+  /**
+   * Start a fresh page when the next `needed` points wouldn't fit above
+   * the bottom margin. Without this a long Terms list (the editable
+   * template can run to a dozen-plus clauses) just ran off the page and
+   * the remainder was silently lost.
+   */
+  const breakIfNeeded = (needed: number) => {
+    if (y - needed < margin) {
+      page = pdf.addPage([612, 792]);
+      y = 792 - margin;
+    }
+  };
+
   const drawText = (
     text: string,
     opts: { size?: number; font?: typeof font; color?: ReturnType<typeof rgb>; x?: number } = {}
   ) => {
+    breakIfNeeded((opts.size ?? 11) + 4);
     page.drawText(sanitizePdfText(text), {
       x: opts.x ?? margin,
       y,
@@ -147,6 +161,7 @@ export async function generateContractPdf(
 
   const drawParagraph = (text: string, size = 11, lineGap = 4) => {
     for (const line of wrap(text, size)) {
+      breakIfNeeded(size + lineGap);
       drawText(line, { size });
       y -= size + lineGap;
     }
@@ -282,6 +297,8 @@ export async function generateContractPdf(
     : [{ title: "Agreement", body: "Standard terms apply." }];
   let i = 1;
   for (const t of terms) {
+    // Don't strand a clause's opening line alone at the page foot.
+    breakIfNeeded(3 * (10 + 3));
     drawParagraph(`${i}. ${t.title}. ${renderTermBody(t.body, input)}`, 10, 3);
     y -= 4;
     i += 1;
@@ -298,12 +315,7 @@ export async function generateContractPdf(
   const SIG_WIDTH = hasSecondary ? 220 : 260;
   const SECOND_COL = 336; // 56 (left) + 220 (width) + 60 gap
   const currentPage = () => pdf.getPageCount(); // 1-indexed
-  const ensureSpace = (needed: number) => {
-    if (y - needed < margin) {
-      page = pdf.addPage([612, 792]);
-      y = 792 - margin;
-    }
-  };
+  const ensureSpace = breakIfNeeded;
   const toPos = (baselineY: number, left: number): ContractFieldPos => ({
     page: currentPage(),
     top: PAGE_HEIGHT - baselineY,
