@@ -18,6 +18,7 @@ import {
   Truck,
   Clock,
   KeyRound,
+  Receipt,
   Menu,
   X,
 } from "lucide-react";
@@ -130,6 +131,12 @@ function buildItems(isAdmin: boolean, canEstimate: boolean): Item[] {
       label: "Estimates",
       icon: FileSignature,
       match: (p) => p.startsWith("/estimates"),
+    },
+    {
+      href: "/invoices",
+      label: "Invoices",
+      icon: Receipt,
+      match: (p) => p.startsWith("/invoices"),
     },
     {
       href: "/finance",

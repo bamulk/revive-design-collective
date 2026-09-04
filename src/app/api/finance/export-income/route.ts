@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   // keeps page boundaries stable. The extensions filter uses .lt(next
   // Jan 1) because stage_extensions.paid_at is a full timestamptz — an
   // .lte("…T23:59:59Z") bound would drop fractional-second timestamps.
-  const [payments, extensions] = await Promise.all([
+  const [payments, extensions, invoicePayments] = await Promise.all([
     fetchAllRows((from, to) =>
       supabase
         .from("stage_payments")
@@ -70,6 +70,20 @@ export async function GET(req: NextRequest) {
         .not("paid_at", "is", null)
         .gte("paid_at", yearStart)
         .lt("paid_at", `${year + 1}-01-01`)
+        .order("paid_at", { ascending: true })
+        .order("id")
+        .range(from, to),
+    ),
+    // Standalone invoices (cleaning, furniture, split billing) — their
+    // own ledger, same cash-basis dates.
+    fetchAllRows((from, to) =>
+      supabase
+        .from("invoice_payments")
+        .select(
+          "amount, paid_at, method, note, invoices(title, reference, bill_to_name, invoice_number)",
+        )
+        .gte("paid_at", yearStart)
+        .lte("paid_at", yearEnd)
         .order("paid_at", { ascending: true })
         .order("id")
         .range(from, to),
@@ -120,6 +134,18 @@ export async function GET(req: NextRequest) {
       method: "",
       note: "30-day stage extension",
       amount: Number(x.amount ?? 0),
+    });
+  }
+  for (const p of invoicePayments ?? []) {
+    const inv = Array.isArray((p as any).invoices) ? (p as any).invoices[0] : (p as any).invoices;
+    entries.push({
+      date: String(p.paid_at).slice(0, 10),
+      type: "Invoice",
+      client: inv?.bill_to_name ?? "",
+      property: inv?.reference ?? "",
+      method: p.method ?? "",
+      note: [inv?.invoice_number, inv?.title, p.note].filter(Boolean).join(" — "),
+      amount: Number(p.amount ?? 0),
     });
   }
   entries.sort((a, b) => a.date.localeCompare(b.date));

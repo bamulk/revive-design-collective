@@ -10,6 +10,7 @@ import { DEFAULT_TEMPLATE, type ContractTemplate, type ContractTerm } from "./co
 import { buildStagePricing } from "@/lib/stage-pricing";
 import { stagedRoomsSummary } from "@/lib/staged-rooms";
 import { generateInvoicePdf, invoiceNumberFor } from "./invoice-pdf";
+import { PAYMENT_METHOD_TERMS } from "@/lib/custom-invoice";
 
 export async function generateInvoiceFor(
   supabase: SupabaseClient,
@@ -112,8 +113,7 @@ export async function generateInvoiceFor(
       "Additional 30-day extensions available for 50% of the original stage amount.",
       "$100 fee if staging team cannot access house the day of staging or destaging.",
       "Revive Design Collective reserves the right to destage after contract time has ended.",
-      "Please make checks payable to: Revive Design Collective, 220 Sandburg Drive, Sacramento, CA 95819.",
-      "Zelle: 530-251-3898 (Williams Real Estate Services).",
+      ...PAYMENT_METHOD_TERMS,
       "Client agrees the selection of furnishings is at the sole discretion of the stager.",
       "Client agrees that the furnishings are owned and leased by Revive Design Collective for display purposes only. While on the property, furnishings are to remain staged and are not to be used in any other fashion.",
       "Client agrees to exercise all due care in keeping, caring for, and preserving the furnishings. Cleaning fee starts at $600.",

@@ -10,13 +10,14 @@ export const dynamic = "force-dynamic";
  * `GET /api/finance/export-pl?year=2026`
  *
  * Output columns:
- *   Month, Staging income, Extension income, Total income,
+ *   Month, Staging income, Extension income, Other income, Total income,
  *   <one column per expense category>, Total Expenses, Net
  *
  * Income is CASH BASIS from the payments ledger (stage_payments), so
  * each payment counts in the month it was actually received — a partial
  * payment in December and the balance in January land in different tax
- * years. Paid 30-day extension fees are a separate income column.
+ * years. Paid 30-day extension fees and standalone-invoice payments
+ * (cleaning, furniture, split billing) are separate income columns.
  *
  * Expenses are grouped by category; NULL categories show as
  * "Uncategorized" (matching the expense-register export). Admins only.
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
   // Expenses / Net on a tax document). id-ordered so pages are stable.
   // Extensions filter with .lt(next Jan 1): paid_at is timestamptz, so
   // an .lte("…T23:59:59Z") bound drops fractional-second timestamps.
-  const [payments, extensions, expenses] = await Promise.all([
+  const [payments, extensions, expenses, invoicePayments] = await Promise.all([
     fetchAllRows((from, to) =>
       supabase
         .from("stage_payments")
@@ -80,6 +81,15 @@ export async function GET(req: NextRequest) {
         .order("id")
         .range(from, to),
     ),
+    fetchAllRows((from, to) =>
+      supabase
+        .from("invoice_payments")
+        .select("amount, paid_at")
+        .gte("paid_at", yearStart)
+        .lte("paid_at", yearEnd)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   // Discover the full set of categories present so the report covers
@@ -102,11 +112,13 @@ export async function GET(req: NextRequest) {
   type Bucket = {
     income: number; // staging payments received
     extIncome: number; // paid extension fees
+    otherIncome: number; // standalone-invoice payments
     expensesByCategory: Map<string, number>;
   };
   const months: Bucket[] = Array.from({ length: 12 }, () => ({
     income: 0,
     extIncome: 0,
+    otherIncome: 0,
     expensesByCategory: new Map(categories.map((c) => [c, 0])),
   }));
 
@@ -121,6 +133,11 @@ export async function GET(req: NextRequest) {
     const m = Number(String(r.paid_at).slice(5, 7)) - 1;
     if (m < 0 || m > 11) continue;
     months[m].extIncome += Number(r.amount ?? 0);
+  }
+  for (const r of invoicePayments ?? []) {
+    const m = Number(String(r.paid_at).slice(5, 7)) - 1;
+    if (m < 0 || m > 11) continue;
+    months[m].otherIncome += Number(r.amount ?? 0);
   }
   for (const e of expenses ?? []) {
     const m = Number(e.date.slice(5, 7)) - 1;
@@ -154,6 +171,7 @@ export async function GET(req: NextRequest) {
     "Month",
     "Staging income",
     "Extension income",
+    "Other income",
     "Total income",
     ...categories.map(neutralize),
     "Total Expenses",
@@ -163,6 +181,7 @@ export async function GET(req: NextRequest) {
   const rows: (string | number)[][] = [header];
   let totalIncome = 0;
   let totalExtIncome = 0;
+  let totalOtherIncome = 0;
   const totalByCategory = new Map<string, number>(
     categories.map((c) => [c, 0]),
   );
@@ -172,12 +191,13 @@ export async function GET(req: NextRequest) {
       (sum, c) => sum + (b.expensesByCategory.get(c) ?? 0),
       0,
     );
-    const monthIncome = b.income + b.extIncome;
+    const monthIncome = b.income + b.extIncome + b.otherIncome;
     const net = monthIncome - totalExpenses;
     rows.push([
       `${monthLabels[i]} ${year}`,
       b.income.toFixed(2),
       b.extIncome.toFixed(2),
+      b.otherIncome.toFixed(2),
       monthIncome.toFixed(2),
       ...categories.map((c) =>
         (b.expensesByCategory.get(c) ?? 0).toFixed(2),
@@ -187,6 +207,7 @@ export async function GET(req: NextRequest) {
     ]);
     totalIncome += b.income;
     totalExtIncome += b.extIncome;
+    totalOtherIncome += b.otherIncome;
     for (const c of categories) {
       totalByCategory.set(
         c,
@@ -199,11 +220,12 @@ export async function GET(req: NextRequest) {
     (sum, c) => sum + (totalByCategory.get(c) ?? 0),
     0,
   );
-  const grandIncome = totalIncome + totalExtIncome;
+  const grandIncome = totalIncome + totalExtIncome + totalOtherIncome;
   rows.push([
     `Total ${year}`,
     totalIncome.toFixed(2),
     totalExtIncome.toFixed(2),
+    totalOtherIncome.toFixed(2),
     grandIncome.toFixed(2),
     ...categories.map((c) => (totalByCategory.get(c) ?? 0).toFixed(2)),
     grandExpenses.toFixed(2),

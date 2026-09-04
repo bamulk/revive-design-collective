@@ -10,6 +10,8 @@ import ClientStagesCards from "@/components/ClientStagesCards";
 import { invoiceNumberFor } from "@/lib/invoice-pdf";
 import { requireTeamMember } from "@/lib/permissions";
 import { formatMDY } from "@/lib/time";
+import InvoiceStatusBadge from "@/components/InvoiceStatusBadge";
+import { fmtMoney } from "@/lib/custom-invoice";
 
 export default async function ClientDetailPage({
   params,
@@ -55,6 +57,16 @@ export default async function ClientDetailPage({
     )
     .eq("client_id", id)
     .order("created_at", { ascending: false });
+
+  // Standalone invoices billed to this client (cleaning, furniture,
+  // split stage billing) — separate from the per-stage invoices above.
+  const { data: clientInvoices } = isAdmin
+    ? await supabase
+        .from("invoices")
+        .select("id, invoice_number, title, reference, total, status, invoice_date, sent_at")
+        .eq("client_id", id)
+        .order("invoice_date", { ascending: false })
+    : { data: [] as any[] };
 
   // The invoice number is derived from the stage id + the date the
   // invoice was generated (INV-YYMMDD-XXXXXX) — same string that's on
@@ -155,6 +167,52 @@ export default async function ClientDetailPage({
         </div>
         <ClientStagesCards stages={stageCards as any} />
       </section>
+
+      {isAdmin && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Invoices</h2>
+            <Link
+              href={`/invoices/new?client=${client.id}`}
+              className="text-sm bg-slate-900 text-white rounded px-3 py-1.5"
+            >
+              + New invoice
+            </Link>
+          </div>
+          {(clientInvoices ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 italic px-1">
+              No standalone invoices — cleaning fees, furniture sales, and
+              split stage billing show here.
+            </p>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border rounded-xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+              {(clientInvoices ?? []).map((inv: any) => (
+                <Link
+                  key={inv.id}
+                  href={`/invoices/${inv.id}`}
+                  className="p-3 sm:p-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                        {inv.title}
+                      </span>
+                      <InvoiceStatusBadge status={inv.status} />
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                      {inv.invoice_number} · {formatMDY(inv.invoice_date)}
+                      {inv.reference ? ` · ${inv.reference}` : ""}
+                    </div>
+                  </div>
+                  <span className="font-medium tabular-nums">
+                    {fmtMoney(Number(inv.total ?? 0))}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 30-day extensions across this client's stages. Clients see
           the same info (minus the PDF link) in their portal. */}

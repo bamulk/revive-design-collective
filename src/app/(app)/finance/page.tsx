@@ -129,7 +129,7 @@ export default async function FinancePage() {
   // rows in mid-2026 and an unbounded select silently truncated the
   // dashboard + exports. Each query orders by a unique key (id) so
   // pagination is stable.
-  const [paidStages, expenses, stageDateRows, paidExtensions, allPayments] =
+  const [paidStages, expenses, stageDateRows, paidExtensions, allPayments, invoicePayments] =
     await Promise.all([
       fetchAllRows((from, to) =>
         supabase
@@ -180,6 +180,15 @@ export default async function FinancePage() {
           .order("id")
           .range(from, to),
       ),
+      // Standalone invoices (cleaning, furniture, split billing) — paid
+      // through their own ledger, counted on the date received.
+      fetchAllRows((from, to) =>
+        supabase
+          .from("invoice_payments")
+          .select("id, amount, paid_at")
+          .order("id")
+          .range(from, to),
+      ),
     ]);
 
   // Recent income — last 30 paid stages, newest first. Used by the
@@ -212,6 +221,12 @@ export default async function FinancePage() {
   }
   // Paid extension fees count as income in the month they were paid.
   for (const row of paidExtensions ?? []) {
+    const key = monthKey(String(row.paid_at));
+    const bucket = monthMap.get(key);
+    if (bucket) bucket.income += Number(row.amount ?? 0);
+  }
+  // Standalone-invoice payments likewise.
+  for (const row of invoicePayments ?? []) {
     const key = monthKey(String(row.paid_at));
     const bucket = monthMap.get(key);
     if (bucket) bucket.income += Number(row.amount ?? 0);
@@ -252,6 +267,11 @@ export default async function FinancePage() {
     }
   }
   for (const row of paidExtensions ?? []) {
+    if (String(row.paid_at).startsWith(`${year}-`)) {
+      ytdIncome += Number(row.amount ?? 0);
+    }
+  }
+  for (const row of invoicePayments ?? []) {
     if (String(row.paid_at).startsWith(`${year}-`)) {
       ytdIncome += Number(row.amount ?? 0);
     }

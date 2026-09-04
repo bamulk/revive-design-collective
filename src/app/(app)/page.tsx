@@ -17,6 +17,7 @@ import TodayMap, { type TodayMapPin } from "@/components/TodayMap";
 import PrefetchTodayStages from "@/components/PrefetchTodayStages";
 import OutstandingSection from "./_OutstandingSection";
 import OutstandingExtensionsSection from "./_OutstandingExtensionsSection";
+import OutstandingCustomInvoicesSection from "./_OutstandingCustomInvoicesSection";
 import CurrentlyStagedSection from "./_CurrentlyStagedSection";
 import PendingListingsSection from "./_PendingListingsSection";
 import ContingencyRemovalsSection from "./_ContingencyRemovalsSection";
@@ -579,6 +580,13 @@ export default async function DashboardPage() {
           fallback={<SectionFallback title="Outstanding extensions" />}
         >
           <OutstandingExtensionsSection />
+        </Suspense>
+      )}
+
+      {/* Standalone invoices (cleaning, furniture, split billing). */}
+      {isAdmin && (
+        <Suspense fallback={<SectionFallback title="Other invoices" />}>
+          <OutstandingCustomInvoicesSection />
         </Suspense>
       )}
 

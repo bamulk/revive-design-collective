@@ -53,6 +53,7 @@ import StageClientControl from "@/components/StageClientControl";
 import PhotographerBox from "@/components/PhotographerBox";
 import ContingencyBox from "@/components/ContingencyBox";
 import StageFees from "./_StageFees";
+import StageInvoices from "./_StageInvoices";
 import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
@@ -816,6 +817,13 @@ export default async function StageDetailPage({
           paymentMethod={stage.payment_method ?? null}
           amount={Number(stage.amount ?? 0)}
         />
+      )}
+
+      {/* Split billing / cleaning charges tied to this stage. */}
+      {isAdmin && (
+        <Suspense fallback={null}>
+          <StageInvoices stageId={id} />
+        </Suspense>
       )}
 
       {isAdmin && (
