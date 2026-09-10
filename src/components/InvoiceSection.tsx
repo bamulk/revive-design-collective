@@ -16,6 +16,9 @@ type Props = {
   invoiceGeneratedAt: string | null;
   invoiceSentAt: string | null;
   clientEmail: string | null;
+  /** True when the agent handed the stage to their seller — the
+   *  email above is the seller's, not the client-of-record's. */
+  recipientIsSeller?: boolean;
   paidAt: string | null;
   paymentMethod: string | null;
   amount: number;
@@ -45,10 +48,13 @@ export default function InvoiceSection({
   invoiceGeneratedAt,
   invoiceSentAt,
   clientEmail,
+  recipientIsSeller = false,
   paidAt,
   paymentMethod,
   amount,
 }: Props) {
+  // Label the address so nobody mistakes the seller for the agent.
+  const who = clientEmail ? `${clientEmail}${recipientIsSeller ? " (seller)" : ""}` : "";
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<
     "gen" | "mark" | "unmark" | "send" | null
@@ -79,7 +85,7 @@ export default function InvoiceSection({
     setSendOk(false);
     if (
       !confirm(
-        `Email this invoice to ${clientEmail}? They'll get a link to the PDF.`
+        `Email this invoice to ${who}? They'll get a link to the PDF.`
       )
     )
       return;
@@ -142,7 +148,7 @@ export default function InvoiceSection({
         {invoiceSentAt && (
           <div className="text-slate-600 dark:text-slate-400">
             Emailed {fmt(invoiceSentAt)}
-            {clientEmail ? ` to ${clientEmail}` : ""}
+            {clientEmail ? ` to ${who}` : ""}
           </div>
         )}
         {paidAt && (
@@ -187,8 +193,8 @@ export default function InvoiceSection({
             disabled={pending}
             title={
               invoiceSentAt
-                ? `Re-send the invoice to ${clientEmail}`
-                : `Email the invoice to ${clientEmail}`
+                ? `Re-send the invoice to ${who}`
+                : `Email the invoice to ${who}`
             }
             className="inline-flex items-center gap-1.5 text-sm bg-brand hover:bg-brand-hover text-white rounded-lg px-3 py-2 disabled:opacity-60"
           >
@@ -207,7 +213,7 @@ export default function InvoiceSection({
       </div>
       {sendOk && (
         <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2">
-          Invoice sent to {clientEmail}.
+          Invoice sent to {who}.
         </p>
       )}
 

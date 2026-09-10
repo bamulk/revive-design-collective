@@ -814,6 +814,7 @@ export default async function StageDetailPage({
           invoiceGeneratedAt={stage.invoice_generated_at ?? null}
           invoiceSentAt={stage.invoice_sent_at ?? null}
           clientEmail={stageRecipient(stage).email}
+          recipientIsSeller={stageRecipient(stage).isHomeowner}
           paidAt={stage.paid_at ?? null}
           paymentMethod={stage.payment_method ?? null}
           amount={Number(stage.amount ?? 0)}

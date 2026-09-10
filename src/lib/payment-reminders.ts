@@ -232,10 +232,12 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   }
 
   const eligibleStages = (stages ?? []).filter((s: any) => {
-    const c = clientOf(s);
-    // Handed-off stages remind the seller (the payer). The client's
-    // reminder opt-out still governs — it's their account of record.
-    if (!stageRecipient(s).email || c?.payment_reminders === false) return false;
+    const r = stageRecipient(s);
+    if (!r.email) return false;
+    // Reminders go to whoever is on the hook. The client's opt-out only
+    // applies when the client is the one paying — a seller who took the
+    // stage over always gets them.
+    if (!r.isHomeowner && clientOf(s)?.payment_reminders === false) return false;
     if (Number(s.invoice_reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) {
       return false;
     }
@@ -350,9 +352,9 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
     ) {
       continue;
     }
-    const c = clientOf(stage);
     const r = stageRecipient(stage);
-    if (!r.email || c?.payment_reminders === false) continue;
+    if (!r.email) continue;
+    if (!r.isHomeowner && clientOf(stage)?.payment_reminders === false) continue;
     if (Number(x.reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) continue;
     if (!dueForReminder(x.pdf_sent_at, null, x.reminder_last_at, now)) continue;
     addItem(r.email, r.name, {
