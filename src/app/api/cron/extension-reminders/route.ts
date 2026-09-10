@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { stageRecipient } from "@/lib/stage-recipient";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
 import { newExtensionToken } from "@/lib/extension-core";
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
   const { data: stages, error } = await supabase
     .from("stages")
     .select(
-      "id, address, city, stage_date, destage_date, extension_token, clients(name, email)",
+      "id, address, city, stage_date, destage_date, extension_token, homeowner_name, homeowner_email, clients(name, email)",
     )
     .eq("status", "staged")
     .eq("destage_date", target)
@@ -74,7 +75,9 @@ export async function GET(req: NextRequest) {
   let failed = 0;
 
   for (const s of (stages ?? []) as any[]) {
-    const clientEmail = s.clients?.email as string | undefined;
+    // The seller decides (and pays for) extensions on a handed-off stage.
+    const recipient = stageRecipient(s);
+    const clientEmail = recipient.email ?? undefined;
     if (!clientEmail) {
       // No email — log + stamp so we don't keep retrying every day.
       await supabase
@@ -102,7 +105,7 @@ export async function GET(req: NextRequest) {
 
     const link = `${baseUrl}/x/${token}`;
     const firstName =
-      (s.clients?.name || "there").split(" ")[0] || "there";
+      (recipient.name || "there").split(" ")[0] || "there";
     const subject = `Action needed: staging at ${s.address}`;
     const text = `Hi ${firstName},
 

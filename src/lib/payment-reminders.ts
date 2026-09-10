@@ -34,6 +34,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
+import { stageRecipient } from "@/lib/stage-recipient";
 
 const FIRST_REMINDER_DAYS = 5;
 const REPEAT_REMINDER_DAYS = 3;
@@ -218,7 +219,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: stages, error: stagesErr } = await admin
     .from("stages")
     .select(
-      "id, address, amount, status, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, secondary_recipient_email, client:clients(name, email, payment_reminders)",
+      "id, address, amount, status, stage_date, invoice_sent_at, invoice_reminder_last_at, invoice_reminder_count, invoice_pdf_url, secondary_recipient_email, homeowner_name, homeowner_email, client:clients(name, email, payment_reminders)",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -232,7 +233,9 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
 
   const eligibleStages = (stages ?? []).filter((s: any) => {
     const c = clientOf(s);
-    if (!c?.email || c.payment_reminders === false) return false;
+    // Handed-off stages remind the seller (the payer). The client's
+    // reminder opt-out still governs — it's their account of record.
+    if (!stageRecipient(s).email || c?.payment_reminders === false) return false;
     if (Number(s.invoice_reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) {
       return false;
     }
@@ -276,7 +279,7 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   const { data: exts, error: extsErr } = await admin
     .from("stage_extensions")
     .select(
-      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, secondary_recipient_email, client:clients(name, email, payment_reminders))",
+      "id, stage_id, amount, pdf_url, pdf_sent_at, reminder_last_at, reminder_count, stage:stages(address, status, secondary_recipient_email, homeowner_name, homeowner_email, client:clients(name, email, payment_reminders))",
     )
     .is("paid_at", null)
     .gt("amount", 0)
@@ -314,10 +317,10 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
   }
 
   for (const s of dueStages as any[]) {
-    const c = clientOf(s)!;
+    const r = stageRecipient(s);
     const balance = Number(s.amount ?? 0) - (paidByStage.get(s.id) ?? 0);
     if (balance <= 0) continue; // fully covered; trigger just hasn't stamped
-    addItem(c.email!, c.name, {
+    addItem(r.email!, r.name, {
       kind: "stage",
       id: s.id,
       address: s.address,
@@ -348,10 +351,11 @@ export async function runPaymentReminderCheck(): Promise<PaymentReminderResult> 
       continue;
     }
     const c = clientOf(stage);
-    if (!c?.email || c.payment_reminders === false) continue;
+    const r = stageRecipient(stage);
+    if (!r.email || c?.payment_reminders === false) continue;
     if (Number(x.reminder_count ?? 0) >= MAX_REMINDERS_PER_INVOICE) continue;
     if (!dueForReminder(x.pdf_sent_at, null, x.reminder_last_at, now)) continue;
-    addItem(c.email, c.name, {
+    addItem(r.email, r.name, {
       kind: "extension",
       id: x.id,
       address: stage.address,

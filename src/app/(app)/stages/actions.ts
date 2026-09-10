@@ -12,6 +12,7 @@ import {
   isSignatureConfigured,
 } from "@/lib/signature";
 import { getContractTemplate } from "@/lib/contract-template";
+import { stageRecipient } from "@/lib/stage-recipient";
 import { sendSignatureFromStage } from "@/lib/signature-send-core";
 import { generateInvoiceFor } from "@/lib/invoice-generate-core";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
@@ -1816,7 +1817,7 @@ export async function batchSendMissingInvoicesAction(): Promise<BatchSendResult>
     const supabase = await createClient();
     const { data: rows, error } = await supabase
       .from("stages")
-      .select("id, address, stage_date, clients(email)")
+      .select("id, address, stage_date, homeowner_name, homeowner_email, clients(email)")
       .is("paid_at", null)
       .gt("amount", 0)
       .is("invoice_sent_at", null)
@@ -1824,10 +1825,7 @@ export async function batchSendMissingInvoicesAction(): Promise<BatchSendResult>
       .order("stage_date", { ascending: true, nullsFirst: false });
     if (error) throw new Error(error.message);
 
-    const eligible = (rows ?? []).filter((r: any) => {
-      const c = Array.isArray(r.clients) ? r.clients[0] : r.clients;
-      return !!c?.email;
-    });
+    const eligible = (rows ?? []).filter((r: any) => !!stageRecipient(r).email);
 
     const { sendInvoiceEmailFor } = await import("@/lib/invoice-email-core");
     let sent = 0;
@@ -2267,19 +2265,19 @@ export async function resendExtensionInvoiceAction(
     const { data: ext, error: extErr } = await supabase
       .from("stage_extensions")
       .select(
-        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, bill_to, line_items, stage_date, destage_date, clients(name, email))",
+        "id, stage_id, amount, extension_date, pdf_url, stage:stages(id, address, city, amount, bill_to, line_items, stage_date, destage_date, homeowner_name, homeowner_email, clients(name, email))",
       )
       .eq("id", extensionId)
       .single();
     if (extErr) throw new Error(extErr.message);
     const stage = Array.isArray(ext.stage) ? ext.stage[0] : ext.stage;
     if (!stage) return { ok: false, error: "Stage not found." };
-    const client = Array.isArray((stage as any).clients)
-      ? (stage as any).clients[0]
-      : (stage as any).clients;
-    const clientEmail = (client?.email as string | undefined) || undefined;
+    // Seller pays when the agent handed the stage off; else the client.
+    const recipient = stageRecipient(stage as any);
+    const client = { name: recipient.name, email: recipient.email };
+    const clientEmail = recipient.email || undefined;
     if (!clientEmail) {
-      return { ok: false, error: "No client email on file." };
+      return { ok: false, error: "No email on file for the payer." };
     }
     const throughDate: string | null =
       ext.extension_date ?? (stage as any).destage_date ?? null;
@@ -2410,7 +2408,7 @@ export async function recordManualExtensionAction(
     const { data: stage, error: fetchErr } = await supabase
       .from("stages")
       .select(
-        "id, address, city, amount, bill_to, stage_date, destage_date, extension_count, clients(name, email)",
+        "id, address, city, amount, bill_to, stage_date, destage_date, extension_count, homeowner_name, homeowner_email, clients(name, email)",
       )
       .eq("id", stageId)
       .single();
@@ -2459,12 +2457,10 @@ export async function recordManualExtensionAction(
         const { sendExtensionEmailToClient } = await import(
           "@/lib/extension-core"
         );
-        const client = Array.isArray((stage as any).clients)
-          ? (stage as any).clients[0]
-          : (stage as any).clients;
+        const recipient = stageRecipient(stage as any);
         const sent = await sendExtensionEmailToClient({
-          clientName: client?.name ?? null,
-          clientEmail: client?.email ?? null,
+          clientName: recipient.name,
+          clientEmail: recipient.email,
           address: (stage as any).address,
           newDestage,
           amount,
@@ -2707,7 +2703,7 @@ export async function approveFeeInvoiceAction(
     .eq("id", feeId)
     .eq("status", "pending")
     .select(
-      "id, stage_id, reasons, note, amount, pdf_url, invoice_number, stage:stages(address, signature_completed_at, agreement_fee_initials, clients(name, email))",
+      "id, stage_id, reasons, note, amount, pdf_url, invoice_number, stage:stages(address, signature_completed_at, agreement_fee_initials, homeowner_name, homeowner_email, clients(name, email))",
     )
     .maybeSingle();
   if (claimErr) return { ok: false, error: claimErr.message };
@@ -2729,13 +2725,13 @@ export async function approveFeeInvoiceAction(
       return { ok: false, error: "No invoice PDF on this fee." };
     }
     const stage = Array.isArray(fee.stage) ? fee.stage[0] : fee.stage;
-    const client = Array.isArray((stage as any)?.clients)
-      ? (stage as any).clients[0]
-      : (stage as any)?.clients;
-    const clientEmail = (client?.email as string | undefined) || "";
+    // Seller pays when the agent handed the stage off; else the client.
+    const recipient = stageRecipient((stage as any) ?? {});
+    const client = { name: recipient.name, email: recipient.email };
+    const clientEmail = recipient.email || "";
     if (!clientEmail) {
       await revert();
-      return { ok: false, error: "Client has no email on file." };
+      return { ok: false, error: "No email on file for the payer." };
     }
 
     const { arrivalFeeLabels } = await import("@/lib/arrival-fees");

@@ -54,6 +54,7 @@ import PhotographerBox from "@/components/PhotographerBox";
 import ContingencyBox from "@/components/ContingencyBox";
 import StageFees from "./_StageFees";
 import StageInvoices from "./_StageInvoices";
+import { stageRecipient } from "@/lib/stage-recipient";
 import { fetchAllRows } from "@/lib/fetch-all";
 import PropertyDetailsFields from "@/components/PropertyDetailsFields";
 import { after } from "next/server";
@@ -812,7 +813,7 @@ export default async function StageDetailPage({
           invoicePdfUrl={stage.invoice_pdf_url ?? null}
           invoiceGeneratedAt={stage.invoice_generated_at ?? null}
           invoiceSentAt={stage.invoice_sent_at ?? null}
-          clientEmail={stage.clients?.email ?? null}
+          clientEmail={stageRecipient(stage).email}
           paidAt={stage.paid_at ?? null}
           paymentMethod={stage.payment_method ?? null}
           amount={Number(stage.amount ?? 0)}

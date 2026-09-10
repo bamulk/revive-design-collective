@@ -11,6 +11,7 @@
  * service-role admin client so they work without a signed-in user.
  */
 import { randomBytes } from "node:crypto";
+import { stageRecipient } from "@/lib/stage-recipient";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePdf, invoiceNumberFor } from "@/lib/invoice-pdf";
 import { sendEmail, isEmailConfigured } from "@/lib/email-send";
@@ -42,7 +43,7 @@ export async function loadStageByToken(token: string) {
         package_key, add_ons, discount, line_items,
         extension_token, extension_token_consumed, extension_count,
         extension_invoice_pdf_url, extension_invoice_amount,
-        extension_invoice_paid_at, clients(name, email)
+        extension_invoice_paid_at, homeowner_name, homeowner_email, clients(name, email)
       `,
     )
     .or(
@@ -196,9 +197,9 @@ export async function generateExtensionInvoice(
     invoiceNumber,
     invoiceDate: today,
     dueDate: null,
-    clientName: stage.clients?.name ?? "Client",
+    clientName: stageRecipient(stage).name ?? "Client",
     billTo: stage.bill_to ?? null,
-    clientEmail: stage.clients?.email ?? null,
+    clientEmail: stageRecipient(stage).email,
     propertyAddress: stage.city
       ? `${stage.address}, ${stage.city}`
       : stage.address,
@@ -326,9 +327,10 @@ export async function extendStage(
     if (error) throw new Error(error.message);
 
     // Email client a confirmation + invoice link.
+    // Seller pays when the agent handed the stage off.
     const sent = await sendExtensionEmailToClient({
-      clientName: stage.clients?.name ?? null,
-      clientEmail: stage.clients?.email ?? null,
+      clientName: stageRecipient(stage).name,
+      clientEmail: stageRecipient(stage).email,
       address: stage.address,
       newDestage,
       amount,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateInvoicePdf, invoiceNumberFor } from "@/lib/invoice-pdf";
 import { todayPacificISO } from "@/lib/time";
+import { stageRecipient } from "@/lib/stage-recipient";
 import {
   ARRIVAL_FEE_REASONS,
   arrivalFeeTotal,
@@ -34,7 +35,7 @@ export async function generateFeeInvoice(
   const { data: stage, error } = await supabase
     .from("stages")
     .select(
-      "id, address, city, stage_date, destage_date, bill_to, client:clients(name, email, address)",
+      "id, address, city, stage_date, destage_date, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)",
     )
     .eq("id", opts.stageId)
     .single();
@@ -46,6 +47,8 @@ export async function generateFeeInvoice(
     address: string | null;
   } | null;
 
+  const recipient = stageRecipient(stage as any);
+
   const today = todayPacificISO();
   const amount = arrivalFeeTotal(opts.reasons);
   const invoiceNumber = `${invoiceNumberFor(stage.id, today)}-F${opts.sequence}`;
@@ -55,10 +58,10 @@ export async function generateFeeInvoice(
     invoiceNumber,
     invoiceDate: today,
     dueDate: today,
-    clientName: c?.name ?? "Client",
+    clientName: recipient.name ?? c?.name ?? "Client",
     billTo: (stage as any).bill_to ?? null,
-    clientEmail: c?.email ?? null,
-    clientAddress: c?.address ?? null,
+    clientEmail: recipient.email ?? null,
+    clientAddress: recipient.isHomeowner ? null : c?.address ?? null,
     propertyAddress: stage.city
       ? `${stage.address}, ${stage.city}`
       : stage.address,
