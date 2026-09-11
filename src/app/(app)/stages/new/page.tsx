@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { createStageAction } from "../actions";
+import NewStageForm from "@/components/NewStageForm";
 import PackagePicker from "@/components/PackagePicker";
 import ClientSelect from "@/components/ClientSelect";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -39,7 +39,7 @@ export default async function NewStagePage({
         ← Back
       </BackLink>
       <h1 className="text-2xl font-semibold">New stage</h1>
-      <form action={createStageAction} className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
+      <NewStageForm className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
         <ClientSelect clients={clients ?? []} defaultClientId={client} />
         <label className="block text-sm">
           Address *
@@ -137,7 +137,7 @@ export default async function NewStagePage({
         <SecondaryRecipientFields />
         <PhotoPicker />
         <SubmitButton pendingLabel="Creating stage…">Create stage</SubmitButton>
-      </form>
+      </NewStageForm>
     </div>
   );
 }

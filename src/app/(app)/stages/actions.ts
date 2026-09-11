@@ -178,7 +178,38 @@ async function sendSignatureRequest(stageId: string) {
   await sendSignatureFromStage(supabase, stageId);
 }
 
+export type CreateStageFormState = { error: string } | null;
+
+/**
+ * Form-friendly wrapper for <NewStageForm />: validation and insert
+ * failures come back as a message rendered above the form (inputs keep
+ * their values) instead of Next's generic "server error" page, which
+ * hides the reason in production.
+ */
+export async function createStageFormAction(
+  _prev: CreateStageFormState,
+  formData: FormData,
+): Promise<CreateStageFormState> {
+  let id: string;
+  try {
+    id = await createStageCore(formData);
+  } catch (e: unknown) {
+    const msg = e instanceof Error && e.message ? e.message : "Couldn't create the stage.";
+    console.error("[createStageFormAction]", msg);
+    return { error: msg };
+  }
+  revalidatePath("/stages");
+  redirect(`/stages/${id}`);
+}
+
 export async function createStageAction(formData: FormData) {
+  const id = await createStageCore(formData);
+  revalidatePath("/stages");
+  redirect(`/stages/${id}`);
+}
+
+/** Creates the stage + photos + activity + signer-choice email; returns the new id. Throws on failure. */
+async function createStageCore(formData: FormData): Promise<string> {
   const supabase = await createClient();
   const pricing = parsePricingFromForm(formData);
 
@@ -292,8 +323,7 @@ export async function createStageAction(formData: FormData) {
     console.error("[createStageAction] sendSignerChoiceEmail failed:", e);
   }
 
-  revalidatePath("/stages");
-  redirect(`/stages/${data.id}`);
+  return data.id as string;
 }
 
 /**
