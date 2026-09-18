@@ -6,6 +6,7 @@
 // Throws on any error so callers can decide whether to surface it.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeStageLength } from "@/lib/stage-length";
 import { createEnvelope } from "./signature";
 import { buildStagePricing } from "@/lib/stage-pricing";
 import { stagedRoomsSummary } from "@/lib/staged-rooms";
@@ -103,10 +104,7 @@ export async function sendSignatureFromStage(
     amount: Number(stage.amount),
     stageDate: stage.stage_date,
     destageDate: stage.destage_date,
-    stageLengthDays:
-      stage.stage_length_days === 60 || stage.stage_length_days === 90
-        ? stage.stage_length_days
-        : 60,
+    stageLengthDays: normalizeStageLength(stage.stage_length_days ?? 60),
     secondaryRecipientName: hasSecondary ? secondaryName : null,
     stageId: stage.id,
     lineItems,

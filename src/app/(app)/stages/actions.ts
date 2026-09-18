@@ -40,8 +40,11 @@ import { isTeamRole, requireTeamMember } from "@/lib/permissions";
 import { notifyStatusChange } from "@/lib/notify";
 import {
   type StageLength,
+  MAX_STAGE_LENGTH,
+  isValidStageLength,
   normalizeStageLength,
 } from "@/lib/stage-length";
+import { renderTermBody } from "@/lib/contract-pdf";
 import { logActivity } from "@/lib/activity-log";
 import { parseStagedRooms, stagedRoomLabels } from "@/lib/staged-rooms";
 
@@ -64,16 +67,25 @@ function parseFloatOrNull(v: FormDataEntryValue | null): number | null {
 }
 
 /**
- * Parse the new "Extended 90-day stage" checkbox. Returns 60 or 90.
- * Accepts either an explicit `stage_length_days` numeric (used by
- * server-to-server calls) or the simpler `extended_stage` checkbox
- * the new-stage / new-estimate forms emit. Constants + types are in
+ * Rental period in days. Reads the explicit `stage_length_days` the
+ * stage form's <StageLengthField /> posts (any whole number, 1–365);
+ * falls back to the legacy `extended_stage` checkbox the estimate forms
+ * still emit. A custom value that isn't a usable number is rejected
+ * rather than quietly becoming 60 — a wrong term on a signed agreement
+ * is worse than a form error. Constants + types live in
  * src/lib/stage-length.ts (server-action files can only export async
- * functions, so they can't live here).
+ * functions).
  */
 function parseStageLengthFromForm(formData: FormData): StageLength {
   const explicit = formData.get("stage_length_days");
-  if (explicit != null && explicit !== "") return normalizeStageLength(explicit);
+  if (explicit != null && explicit !== "") {
+    if (!isValidStageLength(explicit)) {
+      throw new Error(
+        `Stage length must be a whole number of days between 1 and ${MAX_STAGE_LENGTH}.`,
+      );
+    }
+    return normalizeStageLength(explicit);
+  }
   const ext = formData.get("extended_stage");
   return ext === "on" || ext === "true" ? 90 : 60;
 }
@@ -386,7 +398,20 @@ export async function sendSignerChoiceEmail(
   // Same terms the agreement prints, so nothing is a surprise at signing.
   let terms: { title: string; body: string }[] = [];
   try {
-    terms = (await getContractTemplate()).terms;
+    const termInput = {
+      amount: pricing.total,
+      stageDate: stage.stage_date ?? null,
+      destageDate: stage.destage_date ?? null,
+      clientName: agent.name || "",
+      propertyAddress: propertyLine,
+      stageLengthDays: normalizeStageLength(stage.stage_length_days ?? 60),
+    };
+    // Fill {{extension_amount}}, {{rental_period}}, etc. with this
+    // stage's real values — same substitution the agreement PDF does.
+    terms = (await getContractTemplate()).terms.map((t) => ({
+      title: t.title,
+      body: renderTermBody(t.body, termInput),
+    }));
   } catch {
     // Terms are a nice-to-have here — never block the email.
   }
@@ -666,43 +691,65 @@ export async function resendSignatureForStageAction(
  * new amount instead of skipping (it skips when those are already set).
  */
 /**
- * Switch a stage to the 90-day term. Sets destage_date to
- * stage_date + 90 and stage_length_days to 90 (price unchanged), then
- * rides sendNewAgreementForStageAction: the client gets a fresh
- * agreement showing the 90-day term + new destage date, and when they
- * sign it the webhook regenerates + emails a fresh invoice with the
- * new dates at the same amount (the invoice gate is cleared, so the
- * old PDF can't be re-delivered).
+ * Change a stage's rental period to any number of days. Sets
+ * stage_length_days and moves destage_date to stage_date + days (price
+ * unchanged).
+ *
+ * If an agreement has already gone out, this rides
+ * sendNewAgreementForStageAction: the signer gets a fresh agreement
+ * showing the new term + destage date, and signing it makes the webhook
+ * regenerate + email a fresh invoice with the new dates (the invoice
+ * gate is cleared, so the old PDF can't be re-delivered).
+ *
+ * If nothing has been sent yet — the agent hasn't picked who signs —
+ * only the dates change. No agreement is forced out ahead of their
+ * choice; the one that eventually goes out uses the new term.
  */
-export async function changeStageTo90DaysAction(
+export async function changeStageTermAction(
   stageId: string,
+  days: number,
 ): Promise<
-  { ok: true; newDestage: string } | { ok: false; error: string }
+  | { ok: true; newDestage: string; days: number; agreementSent: boolean }
+  | { ok: false; error: string }
 > {
   try {
     await requireAdmin();
+    if (!isValidStageLength(days)) {
+      return {
+        ok: false,
+        error: `Enter a whole number of days between 1 and ${MAX_STAGE_LENGTH}.`,
+      };
+    }
     const supabase = await createClient();
     const { data: stage, error } = await supabase
       .from("stages")
-      .select("id, stage_date, stage_length_days")
+      .select("id, stage_date, stage_length_days, signature_envelope_id")
       .eq("id", stageId)
       .single();
     if (error) throw new Error(error.message);
     if (!stage?.stage_date) {
       return {
         ok: false,
-        error: "Set a stage date first — the 90-day term counts from it.",
+        error: "Set a stage date first — the term counts from it.",
       };
     }
-    if (Number(stage.stage_length_days) === 90) {
-      return { ok: false, error: "This stage is already on the 90-day term." };
+    if (Number(stage.stage_length_days) === days) {
+      return { ok: false, error: `This stage is already on a ${days}-day term.` };
     }
-    const newDestage = addDaysISO(String(stage.stage_date), 90);
+    const newDestage = addDaysISO(String(stage.stage_date), days);
     const { error: upErr } = await supabase
       .from("stages")
-      .update({ stage_length_days: 90, destage_date: newDestage })
+      .update({ stage_length_days: days, destage_date: newDestage })
       .eq("id", stageId);
     if (upErr) throw new Error(upErr.message);
+
+    revalidatePath(`/stages/${stageId}`);
+    revalidatePath("/");
+
+    // Nothing sent yet → don't jump the signer-choice step.
+    if (!stage.signature_envelope_id) {
+      return { ok: true, newDestage, days, agreementSent: false };
+    }
 
     const sent = await sendNewAgreementForStageAction(stageId);
     if (!sent.ok) {
@@ -710,11 +757,10 @@ export async function changeStageTo90DaysAction(
       // card's "Send new agreement" retries the send half.
       return {
         ok: false,
-        error: `Term changed to 90 days (destage ${formatMDY(newDestage)}), but the new agreement failed to send: ${sent.error}. Use "Send new agreement" to retry.`,
+        error: `Term changed to ${days} days (destage ${formatMDY(newDestage)}), but the new agreement failed to send: ${sent.error}. Use "Send updated agreement" to retry.`,
       };
     }
-    revalidatePath("/");
-    return { ok: true, newDestage };
+    return { ok: true, newDestage, days, agreementSent: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Change failed" };
   }

@@ -14,7 +14,9 @@ export const STAGED_ROOMS = [
   { key: "living_room", label: "Living room", singular: "living room", plural: "living rooms", defaultQty: 1 },
   { key: "family_room", label: "Family room", singular: "family room", plural: "family rooms", defaultQty: 1 },
   { key: "dining_room", label: "Dining room", singular: "dining room", plural: "dining rooms", defaultQty: 1 },
-  { key: "den", label: "Den", singular: "den", plural: "dens", defaultQty: 1 },
+  // Key stays "den" (renamed label only) so stages saved before the
+  // rename keep their selection.
+  { key: "den", label: "Office", singular: "office", plural: "offices", defaultQty: 1 },
   { key: "kitchen", label: "Kitchen", singular: "kitchen", plural: "kitchens", defaultQty: 1 },
   { key: "bedrooms", label: "Bedrooms", singular: "bedroom", plural: "bedrooms", defaultQty: 3 },
   { key: "bathrooms", label: "Bathrooms", singular: "bathroom", plural: "bathrooms", defaultQty: 1 },

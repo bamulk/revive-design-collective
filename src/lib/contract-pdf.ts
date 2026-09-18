@@ -9,6 +9,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { ARRIVAL_FEE_CLAUSE } from "./arrival-fees";
 import { sanitizePdfText } from "./pdf-text";
+import { normalizeStageLength } from "./stage-length";
 
 export type ContractLineItem = {
   label: string;
@@ -24,7 +25,8 @@ export type ContractInput = {
   stageDate: string | null;
   destageDate: string | null;
   /** Rental-period length in days (60 default, 90 for extended). */
-  stageLengthDays?: 60 | 90;
+  /** Rental period in days (any whole number; 60 when unset). */
+  stageLengthDays?: number;
   /** Optional secondary signer (homeowner / co-payer). When set, the
    *  contract renders a second signature line that SignatureAPI fills
    *  via the SECONDARY_SIGNATURE_FIELD position. */
@@ -67,12 +69,19 @@ function fmtMoney(n: number): string {
  *   {{destage_date}}       — long-form destage date
  *   {{client_name}}        — client's name
  *   {{property_address}}   — property
+ *   {{rental_period}}      — this stage's length, e.g. "60 days"
  *
  * Lets the editable template say "Extensions are {{extension_amount}}"
  * instead of "50% of original" so the rendered contract shows the real
  * dollar figure.
  */
-function renderTermBody(body: string, input: ContractInput): string {
+export function renderTermBody(
+  body: string,
+  input: Pick<
+    ContractInput,
+    "amount" | "stageDate" | "destageDate" | "clientName" | "propertyAddress" | "stageLengthDays"
+  >,
+): string {
   const baseAmount = Number(input.amount ?? 0);
   const extensionAmount = Math.round(baseAmount * 50) / 100;
   const map: Record<string, string> = {
@@ -82,9 +91,10 @@ function renderTermBody(body: string, input: ContractInput): string {
     "{{destage_date}}": fmtDate(input.destageDate ?? null),
     "{{client_name}}": input.clientName || "",
     "{{property_address}}": input.propertyAddress || "",
+    "{{rental_period}}": `${normalizeStageLength(input.stageLengthDays ?? 60)} days`,
   };
   return body.replace(
-    /\{\{(amount|extension_amount|stage_date|destage_date|client_name|property_address)\}\}/g,
+    /\{\{(amount|extension_amount|stage_date|destage_date|client_name|property_address|rental_period)\}\}/g,
     (m) => map[m] ?? m,
   );
 }
@@ -202,7 +212,7 @@ export async function generateContractPdf(
   // Details table
   drawText("Engagement Details", { size: 12, font: bold });
   y -= 18;
-  const stageLen = input.stageLengthDays === 90 ? 90 : 60;
+  const stageLen = normalizeStageLength(input.stageLengthDays ?? 60);
   const rows: [string, string][] = [
     ["Property", input.propertyAddress],
     ["Client", input.clientName + (input.clientAddress ? ` — ${input.clientAddress}` : "")],

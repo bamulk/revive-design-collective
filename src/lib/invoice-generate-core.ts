@@ -6,6 +6,7 @@
 // so we can auto-generate the invoice the moment a signature lands.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeStageLength } from "@/lib/stage-length";
 import { DEFAULT_TEMPLATE, type ContractTemplate, type ContractTerm } from "./contract-template";
 import { buildStagePricing } from "@/lib/stage-pricing";
 import { stagedRoomsSummary } from "@/lib/staged-rooms";
@@ -95,10 +96,7 @@ export async function generateInvoiceFor(
     propertyAddress: stage.address,
     stageDate: stage.stage_date,
     destageDate: stage.destage_date,
-    stageLengthDays:
-      stage.stage_length_days === 60 || stage.stage_length_days === 90
-        ? stage.stage_length_days
-        : 60,
+    stageLengthDays: normalizeStageLength(stage.stage_length_days ?? 60),
     lineItems,
     discount: pricing.discount,
     total: invoiceTotal,

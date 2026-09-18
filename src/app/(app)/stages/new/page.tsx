@@ -9,6 +9,7 @@ import BackLink from "@/components/BackLink";
 import ExtraFeesFields from "@/components/ExtraFeesFields";
 import CustomLineItemsFields from "@/components/CustomLineItemsFields";
 import StagedRoomsFields from "@/components/StagedRoomsFields";
+import StageLengthField from "@/components/StageLengthField";
 import SecondaryRecipientFields from "@/components/SecondaryRecipientFields";
 import SubmitButton from "@/components/SubmitButton";
 import { requireAdmin } from "@/lib/require-admin";
@@ -120,19 +121,7 @@ export default async function NewStagePage({
             </span>
           </span>
         </label>
-        <label className="flex items-start gap-2 text-sm cursor-pointer">
-          <input
-            type="checkbox"
-            name="extended_stage"
-            className="mt-0.5 h-4 w-4 accent-brand"
-          />
-          <span>
-            Extended 90-day stage
-            <span className="block text-xs text-slate-500 dark:text-slate-400">
-              Uses a 90-day rental period instead of the standard 60. Auto-fills destage date to stage date + 90 days. Reflected on the contract and invoice.
-            </span>
-          </span>
-        </label>
+        <StageLengthField />
         <ExtraFeesFields />
         <SecondaryRecipientFields />
         <PhotoPicker />

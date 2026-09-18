@@ -4,6 +4,7 @@
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { sanitizePdfText } from "./pdf-text";
+import { normalizeStageLength } from "./stage-length";
 
 export type InvoiceLineItem = {
   label: string;
@@ -38,8 +39,8 @@ export type InvoiceInput = {
   propertyAddress?: string | null;
   stageDate?: string | null;
   destageDate?: string | null;
-  /** Rental-period length in days (60 default, 90 for extended). */
-  stageLengthDays?: 60 | 90;
+  /** Rental-period length in days (60 when unset). */
+  stageLengthDays?: number;
   /** Custom layout: what the invoice is for, e.g. "Cleaning fee". */
   title?: string | null;
   /** Custom layout: optional second line under the title. */
@@ -261,7 +262,7 @@ export async function generateInvoicePdf(
       { size: 10, color: muted }
     );
     y -= 14;
-    const stageLen = input.stageLengthDays === 90 ? 90 : 60;
+    const stageLen = normalizeStageLength(input.stageLengthDays ?? 60);
     drawText(`Rental period: ${stageLen} days`, { size: 10, color: muted });
     y -= 18;
   } else {
