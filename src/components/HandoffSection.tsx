@@ -12,6 +12,7 @@ import { resendHandoffEmailAction } from "@/app/(app)/stages/actions";
 export default function HandoffSection({
   stageId,
   agentName,
+  agentEmail,
   handoffToken,
   sellerName,
   sellerEmail,
@@ -19,6 +20,9 @@ export default function HandoffSection({
 }: {
   stageId: string;
   agentName: string | null;
+  /** The client-of-record's email — shown beside the name so a
+   *  name/email mismatch on the client record is obvious at a glance. */
+  agentEmail?: string | null;
   handoffToken: string | null;
   sellerName: string | null;
   sellerEmail: string | null;
@@ -63,8 +67,15 @@ export default function HandoffSection({
           <p className="font-medium text-slate-900 dark:text-slate-100">
             {agentName ?? "The agent"} is signing
           </p>
+          <p className="break-all">
+            {agentEmail ? (
+              <span className="text-slate-600 dark:text-slate-400">&lt;{agentEmail}&gt;</span>
+            ) : (
+              <span className="text-rose-700 dark:text-rose-300">No email on file for this client.</span>
+            )}
+          </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            They kept it — the agreement and invoice go to them.
+            They kept it — the agreement and invoice go to this address.
           </p>
         </div>
       ) : handedOff ? (
@@ -85,8 +96,12 @@ export default function HandoffSection({
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-slate-700 dark:text-slate-300">
-            Waiting on {agentName ?? "the agent"} to choose who signs — them or
-            their seller. <strong>No agreement has been sent yet.</strong>
+            Waiting on {agentName ?? "the agent"}
+            {agentEmail ? (
+              <span className="text-slate-500 dark:text-slate-400 break-all"> &lt;{agentEmail}&gt;</span>
+            ) : null}{" "}
+            to choose who signs — them or their seller.{" "}
+            <strong>No agreement has been sent yet.</strong>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button

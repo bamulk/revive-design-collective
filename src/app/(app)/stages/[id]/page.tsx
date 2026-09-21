@@ -697,6 +697,7 @@ export default async function StageDetailPage({
         <HandoffSection
           stageId={id}
           agentName={stage.clients?.name ?? null}
+          agentEmail={stage.clients?.email ?? null}
           handoffToken={stage.handoff_token ?? null}
           sellerName={stage.homeowner_name ?? null}
           sellerEmail={stage.homeowner_email ?? null}
@@ -723,6 +724,40 @@ export default async function StageDetailPage({
                 <> on {formatMDY(stage.signature_sent_at)}</>
               )}
             </div>
+            {(() => {
+              const current = stageRecipient(stage).email;
+              const sentTo = stage.signature_signer_email as string | null;
+              const status = (stage.signature_status ?? "").toLowerCase();
+              const done = status.includes("complete") || status.includes("signed");
+              if (
+                !current ||
+                !sentTo ||
+                done ||
+                status.includes("bounce") ||
+                current.toLowerCase() === sentTo.trim().toLowerCase()
+              ) {
+                return null;
+              }
+              return (
+                <div className="text-xs text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded p-2 space-y-2">
+                  <p className="font-medium">
+                    This went to a different address than the one on file.
+                  </p>
+                  <p className="break-all">
+                    Sent to <strong>{sentTo}</strong>, but the signer&rsquo;s
+                    email is now <strong>{current}</strong>. Plain
+                    &quot;Resend&quot; re-uses the old address.
+                  </p>
+                  <NewAgreementButton
+                    stageId={id}
+                    label={`Send to ${current}`}
+                    confirmPrompt={`Send a fresh signature request to ${current}? The earlier one stops counting — only the new agreement can complete this stage.`}
+                    confirmCta="Yes, send it"
+                    successText={`Sent to ${current}.`}
+                  />
+                </div>
+              );
+            })()}
             {(stage.signature_status ?? "")
               .toLowerCase()
               .includes("bounce") && (
