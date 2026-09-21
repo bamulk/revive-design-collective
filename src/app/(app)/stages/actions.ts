@@ -522,6 +522,129 @@ Revive Design Collective`;
   }
 }
 
+export type SignerSwitchResult =
+  | { ok: true; agreementSent: boolean; sendError?: string }
+  | { ok: false; error: string };
+
+const SIGNER_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * Shared tail for the two admin signer switches: the signer just
+ * changed, so whatever agreement is out (or already signed) names the
+ * wrong party. Send a fresh one to the new signer. Rides
+ * sendNewAgreementForStageAction, which also clears the invoice gate so
+ * the invoice re-issues to the new payer once they sign. A send failure
+ * doesn't undo the switch — it's reported so staff can retry.
+ */
+async function sendAgreementAfterSignerSwitch(
+  stageId: string,
+): Promise<SignerSwitchResult> {
+  const sent = await sendNewAgreementForStageAction(stageId);
+  revalidatePath(`/stages/${stageId}`);
+  revalidatePath("/");
+  return sent.ok
+    ? { ok: true, agreementSent: true }
+    : { ok: true, agreementSent: false, sendError: sent.error };
+}
+
+/**
+ * Admin override: make the seller the signer + payer, whatever the
+ * agent chose (or before they've chosen at all). Same effect as the
+ * agent picking "Send to my seller" on their link: the seller is stored
+ * as the stage's recipient override, the agent stays client of record,
+ * and a fresh agreement goes to the seller. Also used to correct a
+ * seller's name/email after a handoff.
+ */
+export async function setStageSellerAction(
+  stageId: string,
+  input: { sellerName: string; sellerEmail: string },
+): Promise<SignerSwitchResult> {
+  try {
+    await requireAdmin();
+    const name = (input.sellerName || "").trim().slice(0, 200);
+    const email = (input.sellerEmail || "").trim().toLowerCase();
+    if (!name) return { ok: false, error: "Enter the seller's name." };
+    if (!SIGNER_EMAIL_RE.test(email)) {
+      return { ok: false, error: "Enter a valid seller email." };
+    }
+    const supabase = await createClient();
+    const { data: stage, error } = await supabase
+      .from("stages")
+      .select("id, handoff_token, handoff_completed_at, client:clients(email)")
+      .eq("id", stageId)
+      .single();
+    if (error || !stage) throw new Error(error?.message || "Stage not found");
+
+    const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
+    const agentEmail = (client as { email?: string | null } | null)?.email;
+    if (agentEmail && agentEmail.trim().toLowerCase() === email) {
+      return {
+        ok: false,
+        error: "That's the agent's own email — enter the seller's address.",
+      };
+    }
+
+    const { error: upErr } = await supabase
+      .from("stages")
+      .update({
+        homeowner_name: name,
+        homeowner_email: email,
+        handoff_completed_at: stage.handoff_completed_at ?? new Date().toISOString(),
+        // Close the agent's choice link if it's still open, so a later
+        // click on the old email can't override this decision.
+        ...(stage.handoff_token
+          ? { handoff_token: null, handoff_token_consumed: stage.handoff_token }
+          : {}),
+      })
+      .eq("id", stageId);
+    if (upErr) throw new Error(upErr.message);
+
+    return await sendAgreementAfterSignerSwitch(stageId);
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Couldn't change the signer." };
+  }
+}
+
+/**
+ * Admin override, other direction: take the stage back from the seller
+ * so the agent (client of record) signs and pays again.
+ */
+export async function returnStageToAgentAction(
+  stageId: string,
+): Promise<SignerSwitchResult> {
+  try {
+    await requireAdmin();
+    const supabase = await createClient();
+    const { data: stage, error } = await supabase
+      .from("stages")
+      .select("id, handoff_token, handoff_completed_at, client:clients(email)")
+      .eq("id", stageId)
+      .single();
+    if (error || !stage) throw new Error(error?.message || "Stage not found");
+    const client = Array.isArray(stage.client) ? stage.client[0] : stage.client;
+    if (!(client as { email?: string | null } | null)?.email) {
+      return { ok: false, error: "The client has no email on file — add one first." };
+    }
+
+    const { error: upErr } = await supabase
+      .from("stages")
+      .update({
+        homeowner_name: null,
+        homeowner_email: null,
+        handoff_completed_at: stage.handoff_completed_at ?? new Date().toISOString(),
+        ...(stage.handoff_token
+          ? { handoff_token: null, handoff_token_consumed: stage.handoff_token }
+          : {}),
+      })
+      .eq("id", stageId);
+    if (upErr) throw new Error(upErr.message);
+
+    return await sendAgreementAfterSignerSwitch(stageId);
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Couldn't change the signer." };
+  }
+}
+
 /** Admin action: re-send the agent's signer-choice email. */
 export async function resendHandoffEmailAction(
   id: string,

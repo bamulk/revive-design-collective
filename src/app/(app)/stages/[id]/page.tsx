@@ -25,6 +25,7 @@ import SignatureSendButton from "@/components/SignatureSendButton";
 import SignatureSyncButton from "@/components/SignatureSyncButton";
 import HandoffSection from "@/components/HandoffSection";
 import ChangeTermButton from "@/components/ChangeTermButton";
+import SwitchSignerButton from "@/components/SwitchSignerButton";
 import NewAgreementButton from "@/components/NewAgreementButton";
 import DeleteStageButton from "@/components/DeleteStageButton";
 import StageDateLink from "@/components/StageDateLink";
@@ -811,6 +812,15 @@ export default async function StageDetailPage({
                 stageLengthDays={stage.stage_length_days ?? null}
                 hasEnvelope
               />
+              {/* Staff override of who signs + pays, whatever the agent
+                  picked on their link. */}
+              <SwitchSignerButton
+                stageId={id}
+                agentName={stage.clients?.name ?? null}
+                sellerName={stage.homeowner_name ?? null}
+                sellerEmail={stage.homeowner_email ?? null}
+                isSigned={/complete|signed/i.test(stage.signature_status ?? "")}
+              />
             </div>
           </div>
         ) : (
@@ -824,6 +834,13 @@ export default async function StageDetailPage({
               stageDate={stage.stage_date ?? null}
               stageLengthDays={stage.stage_length_days ?? null}
               hasEnvelope={false}
+            />
+            <SwitchSignerButton
+              stageId={id}
+              agentName={stage.clients?.name ?? null}
+              sellerName={stage.homeowner_name ?? null}
+              sellerEmail={stage.homeowner_email ?? null}
+              isSigned={false}
             />
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Requires SIGNATURE_API_KEY and a client email on file.
