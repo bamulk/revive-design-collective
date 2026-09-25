@@ -190,7 +190,7 @@ async function sendSignatureRequest(stageId: string) {
   await sendSignatureFromStage(supabase, stageId);
 }
 
-export type CreateStageFormState = { error: string } | null;
+export type CreateStageFormState = { error: string } | { id: string } | null;
 
 /**
  * Form-friendly wrapper for <NewStageForm />: validation and insert
@@ -211,7 +211,9 @@ export async function createStageFormAction(
     return { error: msg };
   }
   revalidatePath("/stages");
-  redirect(`/stages/${id}`);
+  // The form navigates itself once any queued videos are uploaded
+  // (they need the new id and can't ride the form post).
+  return { id };
 }
 
 export async function createStageAction(formData: FormData) {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Loader2 } from "lucide-react";
+import { Camera, X, Loader2, Video } from "lucide-react";
 import { compressImage } from "@/lib/image-compress";
+import { usePendingVideos } from "./pending-videos-context";
 
 /**
  * Multi-photo picker with live thumbnails. Submits files as `photos` (repeated
@@ -24,6 +25,11 @@ export default function PhotoPicker({
 }) {
   const hiddenRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
+  // Videos are handed to the surrounding form (see NewStageForm) —
+  // they upload straight to storage after the stage exists.
+  const pendingVideos = usePendingVideos();
+  const videoEnabled = !!pendingVideos && pendingVideos.maxBytes > 0;
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [processing, setProcessing] = useState(0);
 
@@ -43,9 +49,32 @@ export default function PhotoPicker({
   }, [files]);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(e.target.files ?? []);
-    if (picked.length === 0) return;
+    const all = Array.from(e.target.files ?? []);
+    if (all.length === 0) return;
     e.target.value = ""; // allow re-picking same file later
+
+    setVideoError(null);
+    const vids = all.filter((f) => f.type.startsWith("video/"));
+    const picked = all.filter((f) => !f.type.startsWith("video/"));
+    if (vids.length > 0 && pendingVideos) {
+      const max = pendingVideos.maxBytes;
+      const tooBig = vids.filter((f) => f.size > max);
+      if (tooBig.length > 0) {
+        setVideoError(
+          `${tooBig.map((f) => f.name).join(", ")} ${tooBig.length === 1 ? "is" : "are"} over the ${Math.round(max / (1024 * 1024))} MB limit.`,
+        );
+      }
+      const ok = vids.filter((f) => f.size <= max);
+      if (ok.length > 0) {
+        pendingVideos.setVideos((prev) => {
+          const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
+          return [...prev, ...ok.filter((f) => !seen.has(`${f.name}:${f.size}`))];
+        });
+      }
+    } else if (vids.length > 0) {
+      setVideoError("Video uploads aren't available here — add them from the stage page after saving.");
+    }
+    if (picked.length === 0) return;
 
     setProcessing((n) => n + picked.length);
     // Compress in parallel — modern phones handle 3–5 concurrent canvas
@@ -93,7 +122,7 @@ export default function PhotoPicker({
         ) : (
           <>
             <Camera size={16} className="text-slate-500 dark:text-slate-400" />
-            Tap to add photos
+            {videoEnabled ? "Tap to add photos or video" : "Tap to add photos"}
           </>
         )}
       </label>
@@ -103,11 +132,45 @@ export default function PhotoPicker({
       <input
         id={`${name}_visible`}
         type="file"
-        accept="image/*,image/heic,image/heif"
+        accept={videoEnabled ? "image/*,image/heic,image/heif,video/*" : "image/*,image/heic,image/heif"}
         multiple
         onChange={onPick}
         className="hidden"
       />
+
+      {videoError && (
+        <p className="text-xs text-rose-700 dark:text-rose-300">{videoError}</p>
+      )}
+
+      {pendingVideos && pendingVideos.videos.length > 0 && (
+        <ul className="space-y-1">
+          {pendingVideos.videos.map((v, i) => (
+            <li
+              key={`${v.name}:${v.size}`}
+              className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm"
+            >
+              <div className="min-w-0 flex items-center gap-2">
+                <Video size={14} className="shrink-0 text-slate-500" />
+                <span className="truncate">{v.name}</span>
+                <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                  {(v.size / (1024 * 1024)).toFixed(1)} MB
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => pendingVideos.setVideos((prev) => prev.filter((_, j) => j !== i))}
+                aria-label={`Remove ${v.name}`}
+                className="shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+          <li className="text-xs text-slate-500 dark:text-slate-400 px-1">
+            Video uploads after the stage is saved — stay on the page until it finishes.
+          </li>
+        </ul>
+      )}
 
       {files.length > 0 && (
         <p className="text-xs text-slate-500 dark:text-slate-400">

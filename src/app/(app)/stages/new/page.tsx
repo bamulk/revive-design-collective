@@ -13,6 +13,7 @@ import StageLengthField from "@/components/StageLengthField";
 import SecondaryRecipientFields from "@/components/SecondaryRecipientFields";
 import SubmitButton from "@/components/SubmitButton";
 import { requireAdmin } from "@/lib/require-admin";
+import { isR2Configured } from "@/lib/r2";
 
 export default async function NewStagePage({
   searchParams,
@@ -40,7 +41,13 @@ export default async function NewStagePage({
         ← Back
       </BackLink>
       <h1 className="text-2xl font-semibold">New stage</h1>
-      <NewStageForm className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3">
+      {/* Videos upload straight to R2 after the stage exists; without
+          R2 the 50 MB Supabase ceiling makes them a poor fit here, so the
+          picker stays photos-only and the stage page handles video. */}
+      <NewStageForm
+        className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3"
+        videoMaxBytes={isR2Configured() ? 2 * 1024 * 1024 * 1024 : 0}
+      >
         <ClientSelect clients={clients ?? []} defaultClientId={client} />
         <label className="block text-sm">
           Address *
