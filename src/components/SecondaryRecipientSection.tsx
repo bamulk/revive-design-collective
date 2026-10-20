@@ -146,9 +146,10 @@ export default function SecondaryRecipientSection({
       ) : (
         <form onSubmit={onSubmit} className="space-y-2">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            For when the homeowner pays (or splits) with the client. Applies
-            to this stage only — saving CCs them on this stage&apos;s future
-            invoice emails
+            A second person who also signs the agreement — a homeowner
+            splitting with the agent, or the agent on a stage the seller
+            took over. Applies to this stage only. Saving CCs them on this
+            stage&apos;s future invoice emails
             {hasSignatureEnvelope
               ? " and immediately sends a fresh signature request for this stage to both signers."
               : ". They'll be added to this stage's contract the next time you send it for signature."}
@@ -158,7 +159,7 @@ export default function SecondaryRecipientSection({
               name="secondary_recipient_name"
               required
               defaultValue={name ?? ""}
-              placeholder="Homeowner full name"
+              placeholder="Full name"
               className="border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm bg-white dark:bg-slate-900"
             />
             <input
@@ -166,7 +167,7 @@ export default function SecondaryRecipientSection({
               name="secondary_recipient_email"
               required
               defaultValue={email ?? ""}
-              placeholder="homeowner@example.com"
+              placeholder="name@example.com"
               className="border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm bg-white dark:bg-slate-900"
             />
           </div>
