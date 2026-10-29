@@ -71,19 +71,35 @@ export default async function ClientDetailPage({
   // The invoice number is derived from the stage id + the date the
   // invoice was generated (INV-YYMMDD-XXXXXX) — same string that's on
   // the PDF. Only present once an invoice actually exists.
-  const stageCards = (stages ?? []).map((s: any) => ({
-    ...s,
-    invoice_number: s.invoice_generated_at
-      ? invoiceNumberFor(s.id, String(s.invoice_generated_at).slice(0, 10))
-      : null,
-  }));
+  // Non-admins get no money fields at all — not just hidden in the UI,
+  // but absent from what's sent to the browser.
+  const stageCards = (stages ?? []).map((s: any) =>
+    isAdmin
+      ? {
+          ...s,
+          invoice_number: s.invoice_generated_at
+            ? invoiceNumberFor(s.id, String(s.invoice_generated_at).slice(0, 10))
+            : null,
+        }
+      : {
+          id: s.id,
+          address: s.address,
+          status: s.status,
+          stage_date: s.stage_date,
+          destage_date: s.destage_date,
+          amount: null,
+          paid_at: null,
+          payment_method: null,
+          invoice_number: null,
+        },
+  );
 
   // 30-day extensions across this client's stages — same data the
   // client sees in their portal (date, amount, paid) plus the internal
   // invoice-PDF link. Bounded per-client, so no pagination needed.
   const stageIds = (stages ?? []).map((s: any) => s.id);
   const { data: extRows } =
-    stageIds.length > 0
+    isAdmin && stageIds.length > 0
       ? await supabase
           .from("stage_extensions")
           .select("id, stage_id, extension_date, amount, paid_at, pdf_url")
@@ -158,14 +174,16 @@ export default async function ClientDetailPage({
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Stages</h2>
-          <Link
-            href={`/stages/new?client=${client.id}`}
-            className="text-sm bg-slate-900 text-white rounded px-3 py-1.5"
-          >
-            + New stage
-          </Link>
+          {isAdmin && (
+            <Link
+              href={`/stages/new?client=${client.id}`}
+              className="text-sm bg-slate-900 text-white rounded px-3 py-1.5"
+            >
+              + New stage
+            </Link>
+          )}
         </div>
-        <ClientStagesCards stages={stageCards as any} />
+        <ClientStagesCards stages={stageCards as any} showMoney={isAdmin} />
       </section>
 
       {isAdmin && (
@@ -214,8 +232,9 @@ export default async function ClientDetailPage({
         </section>
       )}
 
-      {/* 30-day extensions across this client's stages. Clients see
-          the same info (minus the PDF link) in their portal. */}
+      {/* 30-day extensions across this client's stages — billing data,
+          so admins only. Clients see the same info in their portal. */}
+      {isAdmin && (
       <section>
         <div className="flex items-center justify-between mb-3 gap-3">
           <h2 className="text-lg font-semibold">Extensions</h2>
@@ -280,6 +299,7 @@ export default async function ClientDetailPage({
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

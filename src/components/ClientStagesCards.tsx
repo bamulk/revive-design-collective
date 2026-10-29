@@ -61,8 +61,12 @@ function paymentInfo(s: ClientStage): {
 
 export default function ClientStagesCards({
   stages,
+  showMoney = false,
 }: {
   stages: ClientStage[];
+  /** Admins only: amount, paid/unpaid, invoice number, and the
+   *  paid/unpaid filter. Stagers get address, status, and dates. */
+  showMoney?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -92,7 +96,9 @@ export default function ClientStagesCards({
 
   return (
     <div className="space-y-3">
-      <FilterChips filter={filter} setFilter={setFilter} counts={counts} />
+      {showMoney && (
+        <FilterChips filter={filter} setFilter={setFilter} counts={counts} />
+      )}
 
       {visible.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-600 dark:text-slate-400">
@@ -113,7 +119,7 @@ export default function ClientStagesCards({
                     <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
                       {s.address}
                     </div>
-                    {s.invoice_number && (
+                    {showMoney && s.invoice_number && (
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
                         {s.invoice_number}
                       </div>
@@ -130,11 +136,14 @@ export default function ClientStagesCards({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
                   <Cell label="Stage">{formatMDY(s.stage_date)}</Cell>
                   <Cell label="Destage">{formatMDY(s.destage_date)}</Cell>
+                  {showMoney && (
                   <Cell label="Amount">
                     <span className="tabular-nums">
                       ${Number(s.amount ?? 0).toFixed(2)}
                     </span>
                   </Cell>
+                  )}
+                  {showMoney && (
                   <Cell label="Payment">
                     <span className={`text-xs ${pay.cls}`}>{pay.label}</span>
                     {s.paid_at && (
@@ -143,6 +152,7 @@ export default function ClientStagesCards({
                       </span>
                     )}
                   </Cell>
+                  )}
                 </div>
               </Link>
             );

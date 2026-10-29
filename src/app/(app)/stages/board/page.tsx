@@ -20,7 +20,7 @@ export default async function StagesBoardPage() {
     supabase
       .from("stages")
       .select(
-        "id, address, amount, status, stage_date, destage_date, first_photo_storage_path, clients(name), created_at",
+        "id, address, status, stage_date, destage_date, first_photo_storage_path, clients(name), created_at",
       )
       .not("status", "in", "(cancelled,estimate)")
       .order("stage_date", { ascending: false, nullsFirst: true })
@@ -81,7 +81,6 @@ export default async function StagesBoardPage() {
       id: s.id,
       address: s.address,
       client_name: s.clients?.name ?? null,
-      amount: Number(s.amount),
       status: s.status,
       stage_date: s.stage_date,
       destage_date: s.destage_date,

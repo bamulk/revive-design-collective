@@ -48,8 +48,9 @@ export default async function StagesPage() {
     status: s.status,
     stage_date: s.stage_date,
     destage_date: s.destage_date,
-    amount: Number(s.amount ?? 0),
-    paid_at: s.paid_at ?? null,
+    // Money never leaves the server for non-admins.
+    amount: isAdmin ? Number(s.amount ?? 0) : 0,
+    paid_at: isAdmin ? (s.paid_at ?? null) : null,
   }));
 
   return (

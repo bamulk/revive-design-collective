@@ -21,7 +21,6 @@ export type BoardStage = {
   id: string;
   address: string;
   client_name: string | null;
-  amount: number;
   status: string;
   stage_date: string | null;
   destage_date: string | null;
