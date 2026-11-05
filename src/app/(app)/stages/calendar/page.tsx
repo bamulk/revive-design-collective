@@ -1,5 +1,6 @@
 import { PlusCircle, Home as HomeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO, CREW_HORIZON_DAYS } from "@/lib/crew-horizon";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import CalendarEventsAdmin from "./CalendarEventsAdmin";
@@ -47,7 +48,11 @@ export default async function CalendarPage() {
     note: e.note ?? null,
   }));
 
-  const events: CalendarStage[] = (stages ?? []).map((s: any) => ({
+  // Crew only see the next few days of upcoming stages and destages.
+  const visibleStages = isAdmin
+    ? (stages ?? [])
+    : applyCrewHorizonAll((stages ?? []) as any[], crewHorizonISO());
+  const events: CalendarStage[] = (visibleStages as any[]).map((s: any) => ({
     id: s.id,
     address: s.address,
     status: s.status,
@@ -60,15 +65,21 @@ export default async function CalendarPage() {
     <div className="space-y-6">
       <PageHeader
         title="Calendar"
-        subtitle="Stage and destage dates by month or week"
+        subtitle={
+          isAdmin
+            ? "Stage and destage dates by month or week"
+            : `Your jobs through the next ${CREW_HORIZON_DAYS} days`
+        }
         actions={
           <>
             <LinkButton href="/stages/groups" variant="secondary">
               <HomeIcon size={14} /> Stages
             </LinkButton>
-            <LinkButton href="/stages/new">
-              <PlusCircle size={14} /> New stage
-            </LinkButton>
+            {isAdmin && (
+              <LinkButton href="/stages/new">
+                <PlusCircle size={14} /> New stage
+              </LinkButton>
+            )}
           </>
         }
       />

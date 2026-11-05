@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO } from "@/lib/crew-horizon";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import { formatMDY } from "@/lib/time";
 
@@ -21,15 +22,29 @@ import { formatMDY } from "@/lib/time";
  */
 export default async function NeedPicturesSection() {
   const supabase = await createClient();
-  const { data: rows } = await supabase
-    .from("stages")
-    .select("id, address, city, stage_date, clients(name)")
-    .eq("status", "scheduled")
-    .is("first_photo_storage_path", null)
-    // Soonest stage date first; undated jobs sink to the bottom.
-    .order("stage_date", { ascending: true, nullsFirst: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const [{ data: me }, { data: rows }] = await Promise.all([
+    user
+      ? supabase.from("profiles").select("role").eq("id", user.id).single()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("stages")
+      .select("id, address, city, status, stage_date, destage_date, clients(name)")
+      .eq("status", "scheduled")
+      .is("first_photo_storage_path", null)
+      // Soonest stage date first; undated jobs sink to the bottom.
+      .order("stage_date", { ascending: true, nullsFirst: false }),
+  ]);
+  const isAdmin = (me as { role?: string } | null)?.role === "admin";
 
-  const list = (rows ?? []) as any[];
+  // Crew only see upcoming stages within the next few days.
+  const list = (
+    isAdmin
+      ? (rows ?? [])
+      : applyCrewHorizonAll((rows ?? []) as any[], crewHorizonISO())
+  ) as any[];
   if (list.length === 0) return null;
 
   return (

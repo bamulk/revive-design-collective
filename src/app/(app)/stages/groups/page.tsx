@@ -1,5 +1,6 @@
 import { PlusCircle, CalendarDays, Map as MapIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO, CREW_HORIZON_DAYS } from "@/lib/crew-horizon";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { getWarehouseCoords, haversineMiles } from "@/lib/distance";
@@ -29,7 +30,7 @@ export default async function StagesGroupsPage() {
 
   // Every non-estimate stage ever (~800 and growing) — page past the
   // 1000-row cap with a unique id tiebreaker.
-  const stages = await fetchAllRows((from, to) =>
+  const allStages = await fetchAllRows((from, to) =>
     supabase
       .from("stages")
       .select(
@@ -42,6 +43,10 @@ export default async function StagesGroupsPage() {
       .order("id")
       .range(from, to),
   );
+  // Crew only see upcoming stages / destages within the next few days.
+  const stages = isAdmin
+    ? allStages
+    : applyCrewHorizonAll((allStages ?? []) as any[], crewHorizonISO());
 
   // Photos and tasks: fetch all and group client-side (same approach as
   // the board page — .in() with hundreds of UUIDs blows past PostgREST's

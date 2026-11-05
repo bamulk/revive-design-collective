@@ -6,6 +6,7 @@ import {
   Map as MapIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO, CREW_HORIZON_DAYS } from "@/lib/crew-horizon";
 import { fetchAllRows } from "@/lib/fetch-all";
 import { PageHeader, LinkButton } from "@/components/ui";
 import StagesListView, { type StageRow } from "./StagesListView";
@@ -40,7 +41,11 @@ export default async function StagesPage() {
       .range(from, to),
   );
 
-  const stages: StageRow[] = (rows ?? []).map((s: any) => ({
+  // Crew only see upcoming stages / destages within the next few days.
+  const visibleRows = isAdmin
+    ? (rows ?? [])
+    : applyCrewHorizonAll((rows ?? []) as any[], crewHorizonISO());
+  const stages: StageRow[] = (visibleRows as any[]).map((s: any) => ({
     id: s.id,
     address: s.address,
     city: s.city ?? null,

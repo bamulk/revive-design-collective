@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO } from "@/lib/crew-horizon";
 
 export type SearchHit = {
   type: "stage" | "estimate" | "client";
@@ -46,15 +47,20 @@ export async function universalSearchAction(
     null;
 
   // Active stages (by address/city).
-  const { data: stageRows } = await supabase
+  const { data: stageRowsAll } = await supabase
     .from("stages")
-    .select("id, address, city, clients(name)")
+    .select("id, address, city, status, stage_date, destage_date, clients(name)")
     .neq("status", "estimate")
     .neq("status", "cancelled")
     .or(`address.ilike.${like},city.ilike.${like}`)
     .order("stage_date", { ascending: false })
     .limit(8);
-  for (const s of stageRows ?? []) {
+  // Crew can't find upcoming stages beyond the next few days.
+  const stageRows =
+    me.role === "admin"
+      ? (stageRowsAll ?? [])
+      : applyCrewHorizonAll((stageRowsAll ?? []) as any[], crewHorizonISO());
+  for (const s of stageRows) {
     hits.push({
       type: "stage",
       id: s.id,

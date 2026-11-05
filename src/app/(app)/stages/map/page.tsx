@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, Home as HomeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO } from "@/lib/crew-horizon";
 import { PageHeader, LinkButton } from "@/components/ui";
 import MapView, { type MapStage } from "./MapView";
 import { getWarehouseCoords } from "@/lib/distance";
@@ -27,7 +28,7 @@ export default async function StagesMapPage() {
   // Pull every active stage that has been geocoded. Estimates,
   // cancelled, and completed rows are excluded — completed jobs
   // historically clutter the view and aren't actionable.
-  const { data: stages } = await supabase
+  const { data: allStages } = await supabase
     .from("stages")
     .select(
       "id, address, city, status, stage_date, destage_date, lat, lng, clients(name)",
@@ -37,6 +38,11 @@ export default async function StagesMapPage() {
     .neq("status", "completed")
     .not("lat", "is", null)
     .not("lng", "is", null);
+
+  // Crew only see upcoming stages / destages within the next few days.
+  const stages = isAdmin
+    ? allStages
+    : applyCrewHorizonAll((allStages ?? []) as any[], crewHorizonISO());
 
   // Totals so the user knows how many addresses still need geocoding.
   // Matches the same status filter as above so the count is honest.

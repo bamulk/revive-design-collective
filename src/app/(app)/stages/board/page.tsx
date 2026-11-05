@@ -1,5 +1,6 @@
 import { PlusCircle, LayoutList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizonAll, crewHorizonISO, CREW_HORIZON_DAYS } from "@/lib/crew-horizon";
 import { fetchAllRows } from "@/lib/fetch-all";
 import Board, { type BoardStage } from "./Board";
 import { PageHeader, LinkButton } from "@/components/ui";
@@ -11,12 +12,19 @@ export const dynamic = "force-dynamic";
 
 export default async function StagesBoardPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+  const isAdmin = (me as { role?: string } | null)?.role === "admin";
 
   // Sort newest first: latest stage_date wins, with brand-new cards that
   // don't have a stage_date yet bubbling to the top by created_at.
   // Every non-cancelled/estimate stage ever (~800 and growing), so page
   // past the 1000-row cap with a unique id tiebreaker.
-  const stages = await fetchAllRows((from, to) =>
+  const allStages = await fetchAllRows((from, to) =>
     supabase
       .from("stages")
       .select(
@@ -28,6 +36,10 @@ export default async function StagesBoardPage() {
       .order("id")
       .range(from, to),
   );
+  // Crew only see upcoming stages / destages within the next few days.
+  const stages = isAdmin
+    ? allStages
+    : applyCrewHorizonAll((allStages ?? []) as any[], crewHorizonISO());
 
   const stageIds = new Set((stages ?? []).map((s) => s.id));
 

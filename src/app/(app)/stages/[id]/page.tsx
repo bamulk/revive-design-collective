@@ -9,6 +9,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { applyCrewHorizon, crewHorizonISO } from "@/lib/crew-horizon";
 import StageEditForm from "./StageEditForm";
 import {
   StageEditProvider,
@@ -92,6 +93,15 @@ export default async function StageDetailPage({
   if (!stage) notFound();
   const isAdmin = me?.role === "admin";
   const editing = edit === "1" && isAdmin;
+
+  // Crew only see upcoming stages / destages within the next few days.
+  // A stage beyond that 404s for them (same as a bad link), and a
+  // destage date beyond it is blanked before anything renders.
+  if (!isAdmin) {
+    const visible = applyCrewHorizon(stage, crewHorizonISO());
+    if (!visible) notFound();
+    stage.destage_date = visible.destage_date;
+  }
 
   // Parallel: photos, tasks, AND the crew-profile lookup. The crew
   // fetch depends on `stage.assigned_stager_ids` (just resolved) so
@@ -571,7 +581,13 @@ export default async function StageDetailPage({
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
               <Field label="Stage date">{formatMDY(stage.stage_date)}</Field>
-              <Field label="Destage date">{formatMDY(stage.destage_date)}</Field>
+              <Field label="Destage date">
+                {stage.destage_date ? (
+                  formatMDY(stage.destage_date)
+                ) : (
+                  <span className="text-slate-400 dark:text-slate-500">Not posted yet</span>
+                )}
+              </Field>
               {/* Lockbox is editable by stagers too — they often set or
                   correct the code from the field. */}
               <InlineLockboxField
