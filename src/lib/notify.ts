@@ -13,6 +13,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUsers, isPushConfigured } from "@/lib/push";
 import { todayPacificISO, addDaysISO } from "@/lib/time";
+import { crewHorizonISO } from "@/lib/crew-horizon";
 
 const APP_NAME = "Revive Design Collective";
 
@@ -170,10 +171,25 @@ export async function notifyStagerAssignment(opts: {
     .single();
   if (!stage) return;
 
-  const where = stage.city ? `${stage.address}, ${stage.city}` : stage.address;
   const when =
     opts.kind === "destage" ? stage.destage_date : stage.stage_date;
-  const kindLabel = opts.kind === "destage" ? "destage" : "stage";
+
+  // Crew can only see jobs within the next few days. A job beyond that
+  // (or with no date yet) isn't announced now — the link would 404 for
+  // them — the daily cron (runCrewAssignmentReleaseCheck) sends it the
+  // morning the job enters their window.
+  if (!when || when > crewHorizonISO()) return;
+
+  await sendPushToUsers(added, assignmentPush(opts.stageId, opts.kind, stage));
+}
+
+function assignmentPush(
+  stageId: string,
+  kind: "stage" | "destage",
+  stage: { address: string; city: string | null; stage_date: string | null; destage_date: string | null },
+) {
+  const where = stage.city ? `${stage.address}, ${stage.city}` : stage.address;
+  const when = kind === "destage" ? stage.destage_date : stage.stage_date;
   const dateLabel = when
     ? new Date(`${when}T12:00:00Z`).toLocaleDateString("en-US", {
         weekday: "short",
@@ -181,13 +197,64 @@ export async function notifyStagerAssignment(opts: {
         day: "numeric",
       })
     : "TBD";
-
-  await sendPushToUsers(added, {
+  return {
     title: APP_NAME,
-    body: `You're on the ${kindLabel} crew for ${where} on ${dateLabel}`,
-    url: `/stages/${opts.stageId}`,
-    tag: `assign-${opts.stageId}-${opts.kind}`,
-  });
+    body: `You're on the ${kind} crew for ${where} on ${dateLabel}`,
+    url: `/stages/${stageId}`,
+    tag: `assign-${stageId}-${kind}`,
+  };
+}
+
+/**
+ * Daily: announce crew assignments the morning a job enters the crew's
+ * visibility window. Pairs with the horizon gate in
+ * notifyStagerAssignment — jobs assigned further out than
+ * CREW_HORIZON_DAYS are held until this fires. Targets jobs dated
+ * exactly today + CREW_HORIZON_DAYS, so each job is announced once as
+ * it crosses in. A job whose date is pulled inside the window after
+ * that day isn't re-announced here (the admin's reassignment, if any,
+ * notifies immediately since it's now within the window).
+ */
+export async function runCrewAssignmentReleaseCheck(): Promise<{
+  stages: number;
+  destages: number;
+  sent: number;
+}> {
+  if (!isPushConfigured()) return { stages: 0, destages: 0, sent: 0 };
+  const supabase = createAdminClient();
+  const targetISO = crewHorizonISO();
+
+  const [{ data: staging }, { data: destaging }] = await Promise.all([
+    supabase
+      .from("stages")
+      .select("id, address, city, stage_date, destage_date, assigned_stager_ids")
+      .eq("status", "scheduled")
+      .eq("stage_date", targetISO),
+    supabase
+      .from("stages")
+      .select("id, address, city, stage_date, destage_date, destage_stager_ids")
+      .eq("status", "staged")
+      .eq("destage_date", targetISO),
+  ]);
+
+  let sent = 0;
+  let stages = 0;
+  let destages = 0;
+  for (const s of (staging ?? []) as any[]) {
+    const ids: string[] = Array.isArray(s.assigned_stager_ids) ? s.assigned_stager_ids : [];
+    if (ids.length === 0) continue;
+    stages++;
+    const r = await sendPushToUsers(ids, assignmentPush(s.id, "stage", s));
+    sent += r.sent;
+  }
+  for (const s of (destaging ?? []) as any[]) {
+    const ids: string[] = Array.isArray(s.destage_stager_ids) ? s.destage_stager_ids : [];
+    if (ids.length === 0) continue;
+    destages++;
+    const r = await sendPushToUsers(ids, assignmentPush(s.id, "destage", s));
+    sent += r.sent;
+  }
+  return { stages, destages, sent };
 }
 
 /**

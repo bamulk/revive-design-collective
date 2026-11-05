@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runPhotoReminderCheck } from "@/lib/notify";
+import { runPhotoReminderCheck, runCrewAssignmentReleaseCheck } from "@/lib/notify";
 import { runPaymentReminderCheck } from "@/lib/payment-reminders";
 import { runUnsignedContractCheck } from "@/lib/unsigned-alerts";
 
@@ -17,6 +17,9 @@ import { runUnsignedContractCheck } from "@/lib/unsigned-alerts";
  * 3. Unsigned-agreement alert: email admins about stages staging
  *    TOMORROW whose agreement isn't signed — unsigned stages never get
  *    invoiced, so these used to slip through silently.
+ * 4. Crew release: push stagers their assignment the morning a job
+ *    enters their 3-day visibility window (assignments made further
+ *    out are held until then).
  *
  * Each pass runs in its own try/catch so a failure in one never
  * silently cancels the other.
@@ -71,7 +74,18 @@ export async function GET(req: NextRequest) {
     console.error("[cron/reminders] unsigned pass failed:", e);
   }
 
+  let crew: unknown = null;
+  let crewError: string | null = null;
+  try {
+    crew = await runCrewAssignmentReleaseCheck();
+  } catch (e: any) {
+    crewError = e?.message || "crew pass failed";
+    console.error("[cron/reminders] crew pass failed:", e);
+  }
+
   console.log("[cron/reminders]", {
+    crew,
+    crewError,
     photos,
     photosError,
     payments,
@@ -80,7 +94,9 @@ export async function GET(req: NextRequest) {
     unsignedError,
   });
   return NextResponse.json({
-    ok: !photosError && !paymentsError && !unsignedError,
+    ok: !photosError && !paymentsError && !unsignedError && !crewError,
+    crew,
+    crewError,
     photos,
     photosError,
     payments,
