@@ -410,16 +410,16 @@ export default async function StageDetailPage({
             defaultRooms={parseStagedRooms(stage.staged_rooms)}
           />
           <label className="block text-sm">
-            Note for the agent
+            Note for the client
             <textarea
               name="agent_note"
               rows={3}
               defaultValue={stage.agent_note ?? ""}
-              placeholder="Anything the agent should know — appears in the email they receive."
+              placeholder="e.g. Includes patio furniture. Pickup of the dining set is scheduled separately."
               className="mt-1 w-full border rounded px-3 py-2.5 text-base"
             />
             <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Shown in the agent&rsquo;s email. The Notes box stays internal.
+              Printed on the invoice and included in the invoice email, and in the agent&rsquo;s who-signs email. Leave blank to omit it. Regenerate the invoice PDF after changing it.
             </span>
           </label>
 
@@ -468,13 +468,16 @@ export default async function StageDetailPage({
             </label>
           </div>
           <label className="block text-sm">
-            Notes
+            Internal staff notes
             <textarea
               name="notes"
               defaultValue={stage.notes ?? ""}
               rows={4}
               className="mt-1 w-full border rounded px-3 py-2.5 text-base"
             />
+            <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Only your team sees this. Never printed or emailed.
+            </span>
           </label>
           <label className="flex items-start gap-2 text-sm cursor-pointer">
             <input

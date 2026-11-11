@@ -45,7 +45,7 @@ export async function sendInvoiceEmailFor(
     const { data: stage } = await supabase
       .from("stages")
       .select(
-        "id, address, amount, invoice_pdf_url, secondary_recipient_email, homeowner_name, homeowner_email, client:clients(name, email)",
+        "id, address, amount, invoice_pdf_url, agent_note, secondary_recipient_email, homeowner_name, homeowner_email, client:clients(name, email)",
       )
       .eq("id", stageId)
       .single();
@@ -96,12 +96,19 @@ export async function sendInvoiceEmailFor(
       .slice(0, 50); // Resend limit guardrail
 
     const total = Number(stage.amount).toFixed(2);
+    // "Note for the client" from the stage form. Never stages.notes,
+    // which is the team's internal note.
+    const clientNote =
+      typeof (stage as any).agent_note === "string"
+        ? (stage as any).agent_note.trim()
+        : "";
     const subject = `Invoice for ${stage.address} — Revive Design Collective`;
     const greeting = recipientName.split(/\s+/)[0] || recipientName || "there";
     const text =
       `Hi ${greeting},\n\nThanks for choosing Revive Design Collective. ` +
       `Your invoice for ${stage.address} is attached as a PDF:\n\n${pdfUrl}\n\n` +
       `Total: $${total}` +
+      (clientNote ? `\n\nNote: ${clientNote}` : "") +
       "\n\nPayment by check / cash / Zelle — details on the invoice." +
       `\n\nReach out if you have any questions.\n\nRevive Design Collective`;
 
@@ -122,6 +129,11 @@ export async function sendInvoiceEmailFor(
         <p>
           <strong>Total: $${escapeHtml(total)}</strong>
         </p>
+        ${
+          clientNote
+            ? `<div style="border-left:3px solid #7c8b76; padding:2px 0 2px 12px; margin:16px 0; font-size:14px; color:#334155; white-space:pre-line;"><strong>Note:</strong> ${escapeHtml(clientNote)}</div>`
+            : ""
+        }
         <p style="color:#475569; font-size: 14px;">
           Payment by check / cash / Zelle — details on the invoice.
         </p>

@@ -493,7 +493,7 @@ Revive Design Collective`;
 
   ${
     agentNote
-      ? `<div style="border-left:3px solid #7c8b76; padding:2px 0 2px 12px; margin:20px 0; font-size:14px; color:#334155;"><strong>Note:</strong> ${agentNote}</div>`
+      ? `<div style="border-left:3px solid #7c8b76; padding:2px 0 2px 12px; margin:20px 0; font-size:14px; color:#334155;"><strong>Note:</strong> ${escapeHtml(agentNote)}</div>`
       : ""
   }
 

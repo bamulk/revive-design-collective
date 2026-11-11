@@ -72,16 +72,27 @@ export default async function NewStagePage({
         <PackagePicker beforeSummary={<CustomLineItemsFields />} />
         <StagedRoomsFields />
         <label className="block text-sm">
-          Note for the agent
+          Note for the client
           <textarea
             name="agent_note"
             rows={3}
-            placeholder="Anything the agent should know — appears in the email they receive."
+            placeholder="e.g. Includes patio furniture. Pickup of the dining set is scheduled separately."
             className="mt-1 w-full border rounded px-3 py-2.5 text-base"
           />
           <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Shown in the agent&rsquo;s email. Leave blank to omit it. (The
-            Notes box below stays internal.)
+            Printed on the invoice and included in the invoice email, and in the agent&rsquo;s who-signs email. Leave blank to omit it.
+          </span>
+        </label>
+        <label className="block text-sm">
+          Internal staff notes
+          <textarea
+            name="notes"
+            rows={3}
+            placeholder="Gate code quirks, parking, who to call. Team only."
+            className="mt-1 w-full border rounded px-3 py-2.5 text-base"
+          />
+          <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Only your team sees this. Never printed or emailed.
           </span>
         </label>
 
@@ -110,10 +121,6 @@ export default async function NewStagePage({
             Printed as the invoice&rsquo;s Bill To (client shown as c/o).
             Leave blank to bill the client directly.
           </span>
-        </label>
-        <label className="block text-sm">
-          Notes
-          <textarea name="notes" className="mt-1 w-full border rounded px-3 py-2.5 text-base" rows={4} />
         </label>
         <label className="flex items-start gap-2 text-sm cursor-pointer">
           <input

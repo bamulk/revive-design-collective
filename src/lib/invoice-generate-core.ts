@@ -20,7 +20,7 @@ export async function generateInvoiceFor(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, agent_note, bill_to, homeowner_name, homeowner_email, client:clients(name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -104,6 +104,12 @@ export async function generateInvoiceFor(
     // The big Terms block at the bottom replaces the old free-form
     // paymentInstructions string.
     paymentInstructions: null,
+    // The stage's client-facing note ("Note for the client" on the
+    // form). Internal staff notes (stages.notes) never print.
+    notes:
+      typeof (stage as any).agent_note === "string" && (stage as any).agent_note.trim()
+        ? (stage as any).agent_note.trim()
+        : null,
     // Scope-of-work block is off on invoices for now — restore with
     // `pricing.isCustomPrice ? null : PACKAGE_INCLUDES`.
     packageIncludesNote: null,
