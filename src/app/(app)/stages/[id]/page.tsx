@@ -419,7 +419,7 @@ export default async function StageDetailPage({
               className="mt-1 w-full border rounded px-3 py-2.5 text-base"
             />
             <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Printed on the invoice and included in the invoice email, and in the agent&rsquo;s who-signs email. Leave blank to omit it. Regenerate the invoice PDF after changing it.
+              Printed on the agreement and the invoice, and included in the invoice email and the agent&rsquo;s who-signs email. Leave blank to omit it. After changing it, regenerate the invoice PDF, and use Send updated agreement if the agreement should show it.
             </span>
           </label>
 

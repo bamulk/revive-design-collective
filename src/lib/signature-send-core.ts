@@ -24,7 +24,7 @@ export async function sendSignatureFromStage(
   const { data: stage } = await supabase
     .from("stages")
     .select(
-      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
+      "id, address, amount, stage_date, destage_date, stage_length_days, package_key, add_ons, discount, travel_fee, line_items, staged_rooms, agent_note, secondary_recipient_name, secondary_recipient_email, homeowner_name, homeowner_email, signature_envelope_id, client:clients(id, name, email, address)"
     )
     .eq("id", stageId)
     .single();
@@ -114,6 +114,11 @@ export async function sendSignatureFromStage(
     // Scope of work — the rooms picked on the stage form. Null when
     // none are checked, so the block simply doesn't render.
     packageIncludesNote: stagedRoomsSummary((stage as any).staged_rooms),
+    // "Note for the client" — also on the invoice and its email.
+    clientNote:
+      typeof (stage as any).agent_note === "string"
+        ? (stage as any).agent_note
+        : null,
   });
 
   const path = `${stage.id}/${Date.now()}-${crypto.randomUUID()}.pdf`;

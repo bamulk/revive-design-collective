@@ -42,6 +42,9 @@ export type ContractInput = {
   /** "What's included in the package" copy. Rendered between the total
    *  line and the Terms section. Skip for custom-priced stages. */
   packageIncludesNote?: string | null;
+  /** The stage's "Note for the client". Printed as a Notes section
+   *  between the total and the Terms. Never the internal staff notes. */
+  clientNote?: string | null;
 };
 
 function fmtDate(iso: string | null): string {
@@ -295,6 +298,22 @@ export async function generateContractPdf(
   if (input.packageIncludesNote) {
     drawParagraph(input.packageIncludesNote, 10, 2);
     y -= 6;
+  }
+
+  // Client note from the stage form — same text the invoice prints.
+  // Keeps the admin's line breaks; blank lines become a small gap.
+  const clientNote = (input.clientNote ?? "").trim();
+  if (clientNote) {
+    drawText("Notes", { size: 12, font: bold });
+    y -= 18;
+    for (const para of clientNote.split(/\r?\n/)) {
+      if (!para.trim()) {
+        y -= 6;
+        continue;
+      }
+      drawParagraph(para.trim(), 10, 3);
+    }
+    y -= 10;
   }
 
   // Terms — pulled from the editable template (falls back to a single
