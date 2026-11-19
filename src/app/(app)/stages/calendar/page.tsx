@@ -38,7 +38,7 @@ export default async function CalendarPage() {
   // Manual (non-stage) entries — holidays, warehouse days, vacations.
   const { data: customRows } = await supabase
     .from("calendar_events")
-    .select("id, title, event_date, end_date, note")
+    .select("id, title, event_date, end_date, note, created_by")
     .order("event_date");
   const customEvents: CalendarEvent[] = (customRows ?? []).map((e: any) => ({
     id: e.id,
@@ -46,6 +46,7 @@ export default async function CalendarPage() {
     event_date: e.event_date,
     end_date: e.end_date ?? null,
     note: e.note ?? null,
+    can_delete: isAdmin || (!!user && e.created_by === user.id),
   }));
 
   // Crew only see the next few days of upcoming stages and destages.
@@ -83,7 +84,9 @@ export default async function CalendarPage() {
           </>
         }
       />
-      {isAdmin && <CalendarEventsAdmin events={customEvents} />}
+      {/* Whole team can add entries; admins can remove any, everyone
+          else only their own. */}
+      <CalendarEventsAdmin events={customEvents} />
       <CalendarView
         stages={events}
         events={customEvents}

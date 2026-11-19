@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/require-admin";
+import { requireTeamMember } from "@/lib/permissions";
 
 export type CalendarEventResult = { ok: true } | { ok: false; error: string };
 
-/** Add a manual (non-stage) calendar entry. Admin only. */
+/** Add a manual (non-stage) calendar entry. Any team member. */
 export async function createCalendarEventAction(input: {
   title: string;
   eventDate: string;
@@ -14,7 +14,7 @@ export async function createCalendarEventAction(input: {
   note?: string | null;
 }): Promise<CalendarEventResult> {
   try {
-    await requireAdmin();
+    const { userId } = await requireTeamMember();
     const title = (input.title || "").trim();
     const eventDate = (input.eventDate || "").trim();
     if (!title) return { ok: false, error: "Enter a title." };
@@ -30,15 +30,13 @@ export async function createCalendarEventAction(input: {
     }
 
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     const { error } = await supabase.from("calendar_events").insert({
-      title,
+      title: title.slice(0, 200),
       event_date: eventDate,
       end_date: endDate,
-      note: (input.note || "").trim() || null,
-      created_by: user?.id ?? null,
+      note: (input.note || "").trim().slice(0, 500) || null,
+      // Recorded so the person who added it can remove it later.
+      created_by: userId,
     });
     if (error) return { ok: false, error: error.message };
 
@@ -49,13 +47,24 @@ export async function createCalendarEventAction(input: {
   }
 }
 
-/** Remove a manual calendar entry. Admin only. */
+/**
+ * Remove a manual calendar entry. Admins can remove any entry; anyone
+ * else only the ones they added. (The database enforces the same rule.)
+ */
 export async function deleteCalendarEventAction(
   id: string,
 ): Promise<CalendarEventResult> {
   try {
-    await requireAdmin();
+    const { userId } = await requireTeamMember();
     const supabase = await createClient();
+    const [{ data: me }, { data: ev }] = await Promise.all([
+      supabase.from("profiles").select("role").eq("id", userId).single(),
+      supabase.from("calendar_events").select("created_by").eq("id", id).maybeSingle(),
+    ]);
+    if (!ev) return { ok: false, error: "That entry is already gone." };
+    if (me?.role !== "admin" && ev.created_by !== userId) {
+      return { ok: false, error: "You can only remove entries you added." };
+    }
     const { error } = await supabase
       .from("calendar_events")
       .delete()

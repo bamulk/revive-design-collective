@@ -21,6 +21,8 @@ export type CalendarEvent = {
   /** Inclusive last day for multi-day entries; null = single day. */
   end_date: string | null;
   note: string | null;
+  /** Viewer may remove it: an admin, or the person who added it. */
+  can_delete?: boolean;
 };
 
 type View = "month" | "week";

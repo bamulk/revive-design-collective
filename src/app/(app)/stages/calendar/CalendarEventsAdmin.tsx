@@ -9,9 +9,11 @@ import {
 import type { CalendarEvent } from "./CalendarView";
 
 /**
- * Admin-only panel for the manual (non-stage) calendar entries —
- * holidays, warehouse days, vacations. Collapsed by default so it
- * doesn't compete with the calendar itself.
+ * Panel for the manual (non-stage) calendar entries — holidays,
+ * warehouse days, time off. The whole team can add entries; the remove
+ * button shows only on entries the viewer may remove (admins: all,
+ * everyone else: their own). Collapsed by default so it doesn't
+ * compete with the calendar itself.
  */
 export default function CalendarEventsAdmin({
   events,
@@ -146,15 +148,17 @@ export default function CalendarEventsAdmin({
                   ? ` → ${e.end_date}`
                   : ""}
               </span>
-              <button
-                type="button"
-                onClick={() => remove(e.id)}
-                disabled={pending}
-                aria-label={`Remove ${e.title}`}
-                className="ml-auto shrink-0 text-slate-400 hover:text-rose-600 disabled:opacity-50"
-              >
-                <X size={14} />
-              </button>
+              {e.can_delete && (
+                <button
+                  type="button"
+                  onClick={() => remove(e.id)}
+                  disabled={pending}
+                  aria-label={`Remove ${e.title}`}
+                  className="ml-auto shrink-0 text-slate-400 hover:text-rose-600 disabled:opacity-50"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </li>
           ))}
         </ul>
